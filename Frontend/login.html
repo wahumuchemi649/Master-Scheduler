@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in — School Timetable System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-shell">
+    <section class="auth-visual">
+      <div class="auth-visual__brand">Timetable</div>
+
+      <div>
+        <div class="auth-visual__copy">
+          <h1>Welcome back.</h1>
+          <p>Log in to manage your school's teachers, classes, and timetables.</p>
+        </div>
+        <div class="timetable-grid" id="grid"></div>
+      </div>
+
+      <div style="font-size: 0.85rem; color: #9AA4AC;">Built for schools running Form 1–4, streams, and electives.</div>
+    </section>
+
+    <section class="auth-form-panel">
+      <div class="auth-card">
+        <h2>Log in</h2>
+        <p class="auth-card__subtitle">Enter the email and password you registered with.</p>
+
+        <div class="error-banner" id="errorBanner"></div>
+
+        <form id="loginForm">
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+          </div>
+
+          <button type="submit" class="primary" id="submitBtn">Log in</button>
+        </form>
+
+        <div class="auth-switch">
+          Don't have an account? <a href="signup.html">Register your school</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    renderTimetableGrid("grid");
+
+    const form = document.getElementById("loginForm");
+    const submitBtn = document.getElementById("submitBtn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideError("errorBanner");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Logging in…";
+
+      const payload = {
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value,
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError("errorBanner", data.error || "Invalid email or password.");
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Log in";
+          return;
+        }
+
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        showError("errorBanner", "Could not reach the server. Is the backend running?");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Log in";
+      }
+    });
+  </script>
+</body>
+</html>

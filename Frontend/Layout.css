@@ -1,0 +1,251 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+:root {
+  --color-bg: #EEF1EC;
+  --color-panel: #16283A;
+  --color-panel-active: #1F3A4D;
+  --color-panel-line: rgba(255, 255, 255, 0.08);
+  --color-accent: #C97A2B;
+  --color-accent-dark: #A8631F;
+  --color-surface: #FFFFFF;
+  --color-text: #1C2127;
+  --color-text-muted: #5B6570;
+  --color-border: #D7DBD3;
+
+  --font-display: 'Source Serif 4', Georgia, serif;
+  --font-body: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  min-height: 100vh;
+}
+
+/* ---------- sidebar ---------- */
+
+.sidebar {
+  background: var(--color-panel);
+  color: #EDEFE9;
+  display: flex;
+  flex-direction: column;
+  padding: 1.6rem 0;
+}
+
+.sidebar__brand {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  padding: 0 1.4rem 1.4rem;
+  border-bottom: 1px solid var(--color-panel-line);
+  margin-bottom: 0.4rem;
+}
+
+.sidebar__brand span {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: #9AA4AC;
+  margin-top: 0.15rem;
+}
+
+.sidebar__label {
+  font-size: 0.72rem;
+  color: #7C8792;
+  padding: 1.1rem 1.4rem 0.5rem;
+}
+
+.sidebar__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1.4rem;
+  color: #C4CBD1;
+  text-decoration: none;
+  font-size: 0.92rem;
+  border-left: 3px solid transparent;
+}
+
+.sidebar__link:hover {
+  background: var(--color-panel-active);
+  color: #fff;
+}
+
+.sidebar__link.active {
+  background: var(--color-panel-active);
+  color: #fff;
+  border-left-color: var(--color-accent);
+  font-weight: 500;
+}
+
+.sidebar__step-num {
+  font-size: 0.75rem;
+  color: #7C8792;
+  min-width: 1.2rem;
+}
+
+.sidebar__term {
+  margin: 1rem 1.4rem 0;
+  padding: 0.9rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-panel-line);
+  border-radius: 8px;
+}
+
+.sidebar__term-label {
+  font-size: 0.72rem;
+  color: #9AA4AC;
+  margin-bottom: 0.3rem;
+}
+
+.sidebar__term-value {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* ---------- main ---------- */
+
+.main {
+  padding: 2.2rem 2.6rem;
+}
+
+.main__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.8rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.main__breadcrumb {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.main__title {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+}
+
+.main__subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.main__contact {
+  text-align: right;
+  font-size: 0.88rem;
+}
+
+.main__contact strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.main__contact span {
+  color: var(--color-text-muted);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 1.4rem;
+  margin-bottom: 1.6rem;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+
+.card h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1.1rem;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.4rem;
+}
+
+.info-item label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.info-item div {
+  font-size: 0.95rem;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
+
+.badge {
+  background: #F1F5F0;
+  border: 1px solid #C9DCC5;
+  color: #3B5C3A;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+}
+
+.badge.empty {
+  background: #F5EFE6;
+  border-color: #E3D3B8;
+  color: #8A6A34;
+}
+
+.loading-text {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}

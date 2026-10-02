@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign up — School Timetable System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-shell">
+    <section class="auth-visual">
+      <div class="auth-visual__brand">Timetable</div>
+
+      <div>
+        <div class="auth-visual__copy">
+          <h1>Set up your school once. Generate every term after.</h1>
+          <p>Register your school, add your teachers and classes, and let the system handle the scheduling — conflict-free, every time.</p>
+        </div>
+        <div class="timetable-grid" id="grid"></div>
+      </div>
+
+      <div style="font-size: 0.85rem; color: #9AA4AC;">Built for schools running Form 1–4, streams, and electives.</div>
+    </section>
+
+    <section class="auth-form-panel">
+      <div class="auth-card">
+        <h2>Register your school</h2>
+        <p class="auth-card__subtitle">You'll use this account to manage teachers, classes, and generate timetables.</p>
+
+        <div class="error-banner" id="errorBanner"></div>
+        <div class="generated-id" id="generatedIdBanner"></div>
+
+        <form id="signupForm">
+          <div class="field">
+            <label for="name">School name</label>
+            <input type="text" id="name" name="name" required>
+          </div>
+
+          <div class="field">
+            <label for="address">Address</label>
+            <input type="text" id="address" name="address">
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="contactName">Contact person</label>
+              <input type="text" id="contactName" name="contactName" required>
+            </div>
+            <div class="field">
+              <label for="primaryRole">Role</label>
+              <input type="text" id="primaryRole" name="primaryRole" placeholder="e.g. Deputy Principal" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="primaryContact">Phone number</label>
+            <input type="tel" id="primaryContact" name="primaryContact" required>
+          </div>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+            <div class="field-hint">This is what you'll log in with.</div>
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" minlength="8" required>
+            <div class="field-hint">At least 8 characters.</div>
+          </div>
+
+          <button type="submit" class="primary" id="submitBtn">Create account</button>
+        </form>
+
+        <div class="auth-switch">
+          Already registered? <a href="login.html">Log in</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    renderTimetableGrid("grid");
+
+    const form = document.getElementById("signupForm");
+    const submitBtn = document.getElementById("submitBtn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideError("errorBanner");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Creating account…";
+
+      const payload = {
+        name: document.getElementById("name").value.trim(),
+        address: document.getElementById("address").value.trim(),
+        contactName: document.getElementById("contactName").value.trim(),
+        primaryRole: document.getElementById("primaryRole").value.trim(),
+        primaryContact: document.getElementById("primaryContact").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value,
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError("errorBanner", data.error || "Something went wrong. Please try again.");
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Create account";
+          return;
+        }
+
+        const idBanner = document.getElementById("generatedIdBanner");
+        idBanner.innerHTML = `Your school ID is <strong>${data.id}</strong> — you'll need this alongside your email to identify your school later.`;
+        idBanner.classList.add("visible");
+        submitBtn.textContent = "Account created";
+
+        setTimeout(() => {
+          window.location.href = "dashboard.html";
+        }, 1800);
+      } catch (err) {
+        showError("errorBanner", "Could not reach the server. Is the backend running?");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Create account";
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grades & Streams — School Timetable System</title>
+  <link rel="stylesheet" href="forms-classes.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        Timetable
+        <span id="schoolNameTag">Loading…</span>
+      </div>
+
+      <div class="sidebar__label">SETUP</div>
+      <nav class="sidebar__nav">
+        <a href="dashboard.html" class="sidebar__link">
+          <span class="sidebar__step-num">1</span> School overview
+        </a>
+        <a href="forms-classes.html" class="sidebar__link active">
+          <span class="sidebar__step-num">2</span> Grades &amp; streams
+        </a>
+        <a href="teachers.html" class="sidebar__link">
+          <span class="sidebar__step-num">3</span> Teachers
+        </a>
+        <a href="subjects.html" class="sidebar__link">
+          <span class="sidebar__step-num">4</span> Subjects &amp; requirements
+        </a>
+        <a href="resources.html" class="sidebar__link">
+          <span class="sidebar__step-num">5</span> Resources
+        </a>
+        <a href="option-blocks.html" class="sidebar__link">
+          <span class="sidebar__step-num">6</span> Electives
+        </a>
+        <a href="constraints.html" class="sidebar__link">
+          <span class="sidebar__step-num">7</span> Teacher constraints
+        </a>
+        <a href="periods.html" class="sidebar__link">
+          <span class="sidebar__step-num">8</span> Weekly periods
+        </a>
+        <a href="generate.html" class="sidebar__link">
+          <span class="sidebar__step-num">9</span> Generate &amp; view timetable
+        </a>
+      </nav>
+
+      <div class="sidebar__term">
+        <div class="sidebar__term-label">ACTIVE TERM</div>
+        <div class="sidebar__term-value" id="termValue">—</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="main__header">
+        <div>
+          <div class="main__breadcrumb">Setup / Grades &amp; streams</div>
+          <h1 class="main__title">Grades &amp; streams</h1>
+          <p class="main__subtitle">Add each grade your school runs, then the streams under it — e.g. Form 1, then 1A and 1B.</p>
+        </div>
+      </div>
+
+      <div class="error-banner-inline" id="errorBanner" style="display:none; background:#FBEAE9; color:#B3261E; border:1px solid rgba(179,38,30,0.25); border-radius:6px; padding:0.7rem 0.9rem; font-size:0.88rem; margin-bottom:1.2rem;"></div>
+
+      <form class="top-add-form" id="addGradeForm">
+        <div>
+          <label for="gradeNameInput" style="display:block; font-size:0.75rem; color:var(--color-text-muted); margin-bottom:0.3rem;">Grade name</label>
+          <input type="text" id="gradeNameInput" placeholder="e.g. Form 1" required>
+        </div>
+        <button type="submit" class="primary" style="width:auto; margin:0; align-self:flex-end;">Add grade</button>
+      </form>
+
+      <div class="grade-list" id="gradeList">
+        <p class="loading-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    let schoolId = null;
+
+    function showErr(msg) {
+      const el = document.getElementById("errorBanner");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    function hideErr() {
+      document.getElementById("errorBanner").style.display = "none";
+    }
+
+    async function loadGrades() {
+      const res = await fetch(`${API_BASE}/schools/${schoolId}/grades`, { credentials: "include" });
+      const grades = await res.json();
+
+      const listEl = document.getElementById("gradeList");
+
+      if (grades.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">No grades added yet. Add your first one above.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = "";
+      for (const grade of grades) {
+        const block = document.createElement("div");
+        block.className = "grade-block";
+        block.innerHTML = `
+          <div class="grade-block__header">
+            <div class="grade-block__title">${grade.grade_name}</div>
+            <button class="icon-btn" data-delete-grade="${grade.id}">Remove</button>
+          </div>
+          <div class="stream-chips" id="streams-${grade.id}">
+            <p class="loading-text">Loading streams…</p>
+          </div>
+          <form class="inline-add-form" data-add-stream="${grade.id}">
+            <input type="text" placeholder="e.g. 1A" required>
+            <button type="submit">Add stream</button>
+          </form>
+        `;
+        listEl.appendChild(block);
+        loadStreams(grade.id);
+      }
+
+      // wire up delete-grade buttons
+      listEl.querySelectorAll("[data-delete-grade]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          hideErr();
+          const gradeId = btn.getAttribute("data-delete-grade");
+          try {
+            const res = await fetch(`${API_BASE}/schools/${schoolId}/grades/${gradeId}`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+            if (!res.ok) throw new Error("Could not remove grade");
+            loadGrades();
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+
+      // wire up inline add-stream forms
+      listEl.querySelectorAll("[data-add-stream]").forEach(form => {
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          hideErr();
+          const gradeId = form.getAttribute("data-add-stream");
+          const input = form.querySelector("input");
+          try {
+            const res = await fetch(`${API_BASE}/schools/${schoolId}/grades/${gradeId}/streams`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ stream_name: input.value.trim() }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Could not add stream");
+            input.value = "";
+            loadStreams(gradeId);
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+    }
+
+    async function loadStreams(gradeId) {
+      const res = await fetch(`${API_BASE}/schools/${schoolId}/grades/${gradeId}/streams`, { credentials: "include" });
+      const streams = await res.json();
+      const container = document.getElementById(`streams-${gradeId}`);
+
+      if (streams.length === 0) {
+        container.innerHTML = `<span class="loading-text">No streams yet.</span>`;
+        return;
+      }
+
+      container.innerHTML = streams.map(s => `
+        <span class="stream-chip">
+          ${s.streamName}
+          <button data-delete-stream="${s.id}" data-grade-id="${gradeId}">✕</button>
+        </span>
+      `).join("");
+
+      container.querySelectorAll("[data-delete-stream]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          hideErr();
+          const streamId = btn.getAttribute("data-delete-stream");
+          const gId = btn.getAttribute("data-grade-id");
+          try {
+            const res = await fetch(`${API_BASE}/schools/${schoolId}/grades/${gId}/streams/${streamId}`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+            if (!res.ok) throw new Error("Could not remove stream");
+            loadStreams(gId);
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+    }
+
+    document.getElementById("addGradeForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideErr();
+      const input = document.getElementById("gradeNameInput");
+      try {
+        const res = await fetch(`${API_BASE}/schools/${schoolId}/grades`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ grade_name: input.value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not add grade");
+        input.value = "";
+        loadGrades();
+      } catch (err) {
+        showErr(err.message);
+      }
+    });
+
+    (async function init() {
+      schoolId = await requireAuth();
+      if (!schoolId) return;
+
+      const schoolRes = await fetch(`${API_BASE}/schools/${schoolId}`, { credentials: "include" });
+      if (schoolRes.ok) {
+        const school = await schoolRes.json();
+        document.getElementById("schoolNameTag").textContent = school.name;
+      }
+
+      const termRes = await fetch(`${API_BASE}/schools/${schoolId}/current-term`, { credentials: "include" });
+      if (termRes.ok) {
+        const term = await termRes.json();
+        document.getElementById("termValue").textContent = `${term.term_name} · ${term.academic_year}`;
+      }
+
+      loadGrades();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+@import url('layout.css');
+@import url('teachers.css');
+@import url('subjects.css');
+
+.grade-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1.8rem;
+}
+
+.grade-picker select {
+  font-size: 0.92rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  min-width: 12rem;
+}
+
+.block-card {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.3rem;
+  margin-bottom: 1.2rem;
+  background: var(--color-surface);
+}
+
+.block-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.block-card__title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.group-row {
+  border-top: 1px solid var(--color-border);
+  padding: 0.9rem 0;
+}
+
+.group-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.group-row__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.group-row__subject {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.add-group-form {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.add-group-form select {
+  flex: 1;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}

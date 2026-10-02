@@ -1,0 +1,167 @@
+@import url('layout.css');
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.6rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  max-width: 22rem;
+  flex: 1;
+}
+
+.search-box input {
+  width: 100%;
+  font-size: 0.92rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.toolbar__stats {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: var(--color-accent-dark);
+}
+
+table.teacher-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.teacher-table thead {
+  background: #F7F8F6;
+}
+
+.teacher-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  padding: 0.8rem 1.1rem;
+  text-transform: uppercase;
+}
+
+.teacher-table td {
+  padding: 0.9rem 1.1rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  vertical-align: top;
+}
+
+.teacher-table td.name-cell {
+  font-weight: 600;
+}
+
+.teacher-table td.muted {
+  color: var(--color-text-muted);
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.row-actions button {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.row-actions button:hover {
+  color: var(--color-accent-dark);
+}
+
+.row-actions button.danger:hover {
+  color: var(--color-error);
+}
+
+/* ---------- modal ---------- */
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 40, 58, 0.45);
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal-overlay.visible {
+  display: flex;
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: 10px;
+  padding: 1.8rem;
+  width: 100%;
+  max-width: 24rem;
+}
+
+.modal h3 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  margin: 0 0 1.2rem;
+}
+
+.modal .field {
+  margin-bottom: 1rem;
+}
+
+.modal label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.modal input {
+  width: 100%;
+  font-size: 0.92rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  margin-top: 1.4rem;
+}
+
+.btn-secondary {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}

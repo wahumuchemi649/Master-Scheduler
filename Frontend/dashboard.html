@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — School Timetable System</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        Timetable
+        <span id="schoolNameTag">Loading…</span>
+      </div>
+
+      <div class="sidebar__label">SETUP</div>
+      <nav class="sidebar__nav">
+        <a href="dashboard.html" class="sidebar__link active">
+          <span class="sidebar__step-num">1</span> School overview
+        </a>
+        <a href="forms-classes.html" class="sidebar__link">
+          <span class="sidebar__step-num">2</span> Grades &amp; streams
+        </a>
+        <a href="teachers.html" class="sidebar__link">
+          <span class="sidebar__step-num">3</span> Teachers
+        </a>
+        <a href="subjects.html" class="sidebar__link">
+          <span class="sidebar__step-num">4</span> Subjects &amp; requirements
+        </a>
+        <a href="option-blocks.html" class="sidebar__link">
+          <span class="sidebar__step-num">5</span> Electives
+        </a>
+        <a href="constraints.html" class="sidebar__link">
+          <span class="sidebar__step-num">6</span> Teacher constraints
+        </a>
+        <a href="periods.html" class="sidebar__link">
+          <span class="sidebar__step-num">7</span> Weekly periods
+        </a>
+        <a href="generate.html" class="sidebar__link">
+          <span class="sidebar__step-num">8</span> Generate &amp; view timetable
+        </a>
+      </nav>
+
+      <div class="sidebar__term">
+        <div class="sidebar__term-label">ACTIVE TERM</div>
+        <div class="sidebar__term-value" id="termValue">—</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="main__header">
+        <div>
+          <div class="main__breadcrumb">Setup</div>
+          <h1 class="main__title" id="schoolTitle">Loading…</h1>
+          <p class="main__subtitle">Details used across your timetable and exports.</p>
+        </div>
+        <div class="main__contact" id="contactBlock"></div>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3>School details</h3>
+          <div class="info-grid" id="schoolDetails">
+            <p class="loading-text">Loading…</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Primary contact</h3>
+          <div class="info-grid" id="contactDetails">
+            <p class="loading-text">Loading…</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Setup progress</h3>
+        <div class="badges" id="badges">
+          <p class="loading-text">Loading…</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    (async function init() {
+      const schoolId = await requireAuth();
+      if (!schoolId) return;
+
+      try {
+        const [schoolRes, termRes, summaryRes] = await Promise.all([
+          fetch(`${API_BASE}/schools/${schoolId}`, { credentials: "include" }),
+          fetch(`${API_BASE}/schools/${schoolId}/current-term`, { credentials: "include" }),
+          fetch(`${API_BASE}/schools/${schoolId}/summary`, { credentials: "include" }),
+        ]);
+
+        const school = schoolRes.ok ? await schoolRes.json() : null;
+        const term = termRes.ok ? await termRes.json() : null;
+        const summary = summaryRes.ok ? await summaryRes.json() : null;
+
+        if (school) {
+          document.getElementById("schoolNameTag").textContent = school.name;
+          document.getElementById("schoolTitle").textContent = school.name;
+
+          document.getElementById("schoolDetails").innerHTML = `
+            <div class="info-item"><label>School ID</label><div>${schoolId}</div></div>
+            <div class="info-item"><label>Address</label><div>${school.address || "—"}</div></div>
+          `;
+
+          document.getElementById("contactDetails").innerHTML = `
+            <div class="info-item"><label>Contact person</label><div>${school.contact_name || "—"}</div></div>
+            <div class="info-item"><label>Role</label><div>${school.primary_role || "—"}</div></div>
+            <div class="info-item"><label>Phone</label><div>${school.primary_contact || "—"}</div></div>
+          `;
+
+          document.getElementById("contactBlock").innerHTML = `
+            <strong>${school.contact_name || "—"}</strong>
+            <span>${school.primary_role || ""}</span>
+          `;
+        }
+
+        document.getElementById("termValue").textContent = term
+          ? `${term.term_name} · ${term.academic_year}`
+          : "No term set";
+
+        if (summary) {
+          const badges = document.getElementById("badges");
+          const entries = [
+            { label: "grade(s)", count: summary.gradeCount },
+            { label: "stream(s)", count: summary.streamCount },
+            { label: "teacher(s)", count: summary.teacherCount },
+            { label: "subject(s)", count: summary.subjectCount },
+            { label: "period(s) set up", count: summary.periodCount },
+          ];
+          badges.innerHTML = entries
+            .map(e => `<span class="badge${e.count === 0 ? " empty" : ""}">${e.count} ${e.label}</span>`)
+            .join("");
+        }
+      } catch (err) {
+        document.getElementById("schoolTitle").textContent = "Could not load dashboard";
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+@import url('layout.css');
+@import url('teachers.css');
+
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.rule-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+}
+
+.rule-card__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rule-card__title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.rule-card__scope {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.rule-card__right {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.tag {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.tag.unavailable {
+  background: #FBEAE9;
+  color: #B3261E;
+}
+
+.tag.consecutive {
+  background: #FBEAE9;
+  color: #B3261E;
+}
+
+.info-panel {
+  background: #F1F5F0;
+  border: 1px solid #C9DCC5;
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  font-size: 0.87rem;
+  color: #3B5C3A;
+  margin-bottom: 1.6rem;
+}
+
+.form-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.4rem;
+  margin-bottom: 1.8rem;
+}
+
+.form-card .field-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-card label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.form-card select, .form-card input {
+  width: 100%;
+  font-size: 0.9rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.period-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.period-checks label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--color-text);
+  background: #F7F8F6;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  width: auto;
+}

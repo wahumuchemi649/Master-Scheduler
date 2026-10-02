@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Electives — School Timetable System</title>
+  <link rel="stylesheet" href="option-blocks.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        Timetable
+        <span id="schoolNameTag">Loading…</span>
+      </div>
+
+      <div class="sidebar__label">SETUP</div>
+      <nav class="sidebar__nav">
+        <a href="dashboard.html" class="sidebar__link">
+          <span class="sidebar__step-num">1</span> School overview
+        </a>
+        <a href="forms-classes.html" class="sidebar__link">
+          <span class="sidebar__step-num">2</span> Grades &amp; streams
+        </a>
+        <a href="teachers.html" class="sidebar__link">
+          <span class="sidebar__step-num">3</span> Teachers
+        </a>
+        <a href="subjects.html" class="sidebar__link">
+          <span class="sidebar__step-num">4</span> Subjects &amp; requirements
+        </a>
+        <a href="option-blocks.html" class="sidebar__link active">
+          <span class="sidebar__step-num">5</span> Electives
+        </a>
+        <a href="constraints.html" class="sidebar__link">
+          <span class="sidebar__step-num">6</span> Teacher constraints
+        </a>
+        <a href="periods.html" class="sidebar__link">
+          <span class="sidebar__step-num">7</span> Weekly periods
+        </a>
+        <a href="generate.html" class="sidebar__link">
+          <span class="sidebar__step-num">8</span> Generate &amp; view timetable
+        </a>
+      </nav>
+
+      <div class="sidebar__term">
+        <div class="sidebar__term-label">ACTIVE TERM</div>
+        <div class="sidebar__term-value" id="termValue">—</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="main__header">
+        <div>
+          <div class="main__breadcrumb">Setup / Electives</div>
+          <h1 class="main__title">Electives</h1>
+          <p class="main__subtitle">For grades where students split into parallel subjects at the same time — e.g. some take Biology while others take Physics.</p>
+        </div>
+      </div>
+
+      <div class="error-banner-inline" id="errorBanner" style="display:none; background:#FBEAE9; color:#B3261E; border:1px solid rgba(179,38,30,0.25); border-radius:6px; padding:0.7rem 0.9rem; font-size:0.88rem; margin-bottom:1.2rem;"></div>
+
+      <div class="grade-picker">
+        <label for="gradeSelect" style="font-size:0.85rem; color:var(--color-text-muted);">Grade:</label>
+        <select id="gradeSelect">
+          <option value="">Select a grade…</option>
+        </select>
+        <button class="btn-primary" id="addBlockBtn" style="display:none;">+ New elective split</button>
+      </div>
+
+      <div id="blocksContainer">
+        <p class="loading-text">Select a grade to manage its electives.</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    let schoolId = null;
+    let subjects = [];
+    let teachers = [];
+    let currentGradeId = null;
+
+    function showErr(msg) {
+      const el = document.getElementById("errorBanner");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+    function hideErr() {
+      document.getElementById("errorBanner").style.display = "none";
+    }
+
+    async function loadGrades() {
+      const res = await fetch(`${API_BASE}/schools/${schoolId}/grades`, { credentials: "include" });
+      const grades = await res.json();
+      document.getElementById("gradeSelect").innerHTML =
+        `<option value="">Select a grade…</option>` +
+        grades.map(g => `<option value="${g.id}">${g.grade_name}</option>`).join("");
+    }
+
+    async function loadSubjectsAndTeachers() {
+      const [subjectsRes, teachersRes] = await Promise.all([
+        fetch(`${API_BASE}/schools/${schoolId}/subjects`, { credentials: "include" }),
+        fetch(`${API_BASE}/schools/${schoolId}/teachers`, { credentials: "include" }),
+      ]);
+      subjects = await subjectsRes.json();
+      teachers = await teachersRes.json();
+    }
+
+    async function loadBlocks(gradeId) {
+      const res = await fetch(`${API_BASE}/grades/${gradeId}/option-blocks`, { credentials: "include" });
+      const blocks = await res.json();
+      const container = document.getElementById("blocksContainer");
+
+      if (blocks.length === 0) {
+        container.innerHTML = `<p class="loading-text">No elective splits for this grade yet.</p>`;
+        return;
+      }
+
+      container.innerHTML = "";
+      for (const block of blocks) {
+        const card = document.createElement("div");
+        card.className = "block-card";
+        card.innerHTML = `
+          <div class="block-card__header">
+            <div class="block-card__title">Elective split #${block.id}</div>
+            <button data-remove-block="${block.id}" style="background:none; border:none; color:var(--color-text-muted); cursor:pointer; font-size:0.85rem;">Remove split</button>
+          </div>
+          <div id="groups-${block.id}"><p class="loading-text">Loading subjects…</p></div>
+          <form class="add-group-form" data-add-group="${block.id}">
+            <select required>
+              <option value="">Add a subject to this split…</option>
+              ${subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join("")}
+            </select>
+            <button type="submit" class="btn-primary" style="width:auto;">Add</button>
+          </form>
+        `;
+        container.appendChild(card);
+        loadGroups(block.id);
+      }
+
+      container.querySelectorAll("[data-remove-block]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          hideErr();
+          if (!confirm("Remove this elective split and all its subjects?")) return;
+          try {
+            const res = await fetch(`${API_BASE}/grades/${gradeId}/option-blocks/${btn.dataset.removeBlock}`, {
+              method: "DELETE", credentials: "include",
+            });
+            if (!res.ok) throw new Error("Could not remove split");
+            loadBlocks(gradeId);
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+
+      container.querySelectorAll("[data-add-group]").forEach(form => {
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          hideErr();
+          const blockId = form.getAttribute("data-add-group");
+          const select = form.querySelector("select");
+          try {
+            const res = await fetch(`${API_BASE}/grades/${gradeId}/option-blocks/${blockId}/groups`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ subjectId: parseInt(select.value) }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Could not add subject");
+            select.value = "";
+            loadGroups(blockId);
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+    }
+
+    async function loadGroups(blockId) {
+      const res = await fetch(`${API_BASE}/grades/${currentGradeId}/option-blocks/${blockId}/groups`, { credentials: "include" });
+      const groups = await res.json();
+      const container = document.getElementById(`groups-${blockId}`);
+
+      if (groups.length === 0) {
+        container.innerHTML = `<p class="loading-text">No subjects in this split yet.</p>`;
+        return;
+      }
+
+      container.innerHTML = "";
+      for (const group of groups) {
+        const subject = subjects.find(s => s.id === group.subjectId);
+        const row = document.createElement("div");
+        row.className = "group-row";
+        row.innerHTML = `
+          <div class="group-row__top">
+            <div class="group-row__subject">${subject ? subject.name : "—"}</div>
+            <button data-remove-group="${group.id}" style="background:none; border:none; color:var(--color-text-muted); cursor:pointer; font-size:0.82rem;">Remove</button>
+          </div>
+          <div class="teacher-chips" id="groupTeachers-${group.id}" style="margin-top:0.5rem;">
+            <span class="loading-text">Loading…</span>
+          </div>
+          <button class="small-link-btn" data-toggle-assign="${group.id}" data-subject-id="${group.subjectId}">+ Assign teacher</button>
+          <div class="assign-row" id="assignRow-${group.id}" style="display:none;"></div>
+        `;
+        container.appendChild(row);
+        loadGroupTeachers(group.id);
+      }
+
+      container.querySelectorAll("[data-remove-group]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          hideErr();
+          try {
+            const res = await fetch(`${API_BASE}/grades/${currentGradeId}/option-blocks/${blockId}/groups/${btn.dataset.removeGroup}`, {
+              method: "DELETE", credentials: "include",
+            });
+            if (!res.ok) throw new Error("Could not remove subject");
+            loadGroups(blockId);
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+
+      container.querySelectorAll("[data-toggle-assign]").forEach(btn => {
+        btn.addEventListener("click", () => toggleAssignRow(btn.dataset.toggleAssign, btn.dataset.subjectId));
+      });
+    }
+
+    async function loadGroupTeachers(groupId) {
+      const res = await fetch(`${API_BASE}/option-groups/${groupId}/assignments`, { credentials: "include" });
+      const assignments = res.ok ? await res.json() : [];
+      const container = document.getElementById(`groupTeachers-${groupId}`);
+
+      container.innerHTML = assignments.length
+        ? assignments.map(a => `
+            <span class="teacher-chip">
+              ${a.teacherName}
+              <button data-unassign="${a.assignmentId}" data-group="${groupId}">✕</button>
+            </span>
+          `).join("")
+        : `<span class="loading-text">No teacher assigned yet</span>`;
+
+      container.querySelectorAll("[data-unassign]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          hideErr();
+          try {
+            const res = await fetch(`${API_BASE}/assignments/${btn.dataset.unassign}`, {
+              method: "DELETE", credentials: "include",
+            });
+            if (!res.ok) throw new Error("Could not remove assignment");
+            loadGroupTeachers(btn.dataset.group);
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+    }
+
+    function toggleAssignRow(groupId, subjectId) {
+      const row = document.getElementById(`assignRow-${groupId}`);
+      if (row.style.display === "flex") {
+        row.style.display = "none";
+        return;
+      }
+      row.innerHTML = `
+        <select id="assignTeacherSelect-${groupId}">
+          <option value="">Teacher…</option>
+          ${teachers.map(t => `<option value="${t.id}">${t.name}</option>`).join("")}
+        </select>
+        <button data-confirm-assign="${groupId}" data-subject-id="${subjectId}">Assign</button>
+      `;
+      row.style.display = "flex";
+
+      row.querySelector("[data-confirm-assign]").addEventListener("click", async () => {
+        hideErr();
+        const teacherId = document.getElementById(`assignTeacherSelect-${groupId}`).value;
+        if (!teacherId) {
+          showErr("Choose a teacher.");
+          return;
+        }
+        try {
+          const res = await fetch(`${API_BASE}/teachers/${teacherId}/assignments`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ subjectId: parseInt(subjectId), optionGroupId: parseInt(groupId) }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Could not assign teacher");
+          row.style.display = "none";
+          loadGroupTeachers(groupId);
+        } catch (err) {
+          showErr(err.message);
+        }
+      });
+    }
+
+    document.getElementById("gradeSelect").addEventListener("change", (e) => {
+      currentGradeId = e.target.value;
+      document.getElementById("addBlockBtn").style.display = currentGradeId ? "inline-block" : "none";
+      if (currentGradeId) {
+        loadBlocks(currentGradeId);
+      } else {
+        document.getElementById("blocksContainer").innerHTML = `<p class="loading-text">Select a grade to manage its electives.</p>`;
+      }
+    });
+
+    document.getElementById("addBlockBtn").addEventListener("click", async () => {
+      hideErr();
+      try {
+        const res = await fetch(`${API_BASE}/grades/${currentGradeId}/option-blocks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Could not create elective split");
+        loadBlocks(currentGradeId);
+      } catch (err) {
+        showErr(err.message);
+      }
+    });
+
+    (async function init() {
+      schoolId = await requireAuth();
+      if (!schoolId) return;
+
+      const schoolRes = await fetch(`${API_BASE}/schools/${schoolId}`, { credentials: "include" });
+      if (schoolRes.ok) {
+        const school = await schoolRes.json();
+        document.getElementById("schoolNameTag").textContent = school.name;
+      }
+
+      const termRes = await fetch(`${API_BASE}/schools/${schoolId}/current-term`, { credentials: "include" });
+      if (termRes.ok) {
+        const term = await termRes.json();
+        document.getElementById("termValue").textContent = `${term.term_name} · ${term.academic_year}`;
+      }
+
+      await Promise.all([loadGrades(), loadSubjectsAndTeachers()]);
+    })();
+  </script>
+</body>
+</html>

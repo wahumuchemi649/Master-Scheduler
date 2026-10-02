@@ -1,0 +1,140 @@
+@import url('layout.css');
+@import url('teachers.css');
+
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1.6rem;
+}
+
+.panel h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  margin: 0 0 1rem;
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.inline-form .field label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.inline-form input, .inline-form select {
+  font-size: 0.9rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.result-banner {
+  display: none;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+}
+
+.result-banner.success {
+  display: block;
+  background: #F1F5F0;
+  border: 1px solid #C9DCC5;
+  color: #3B5C3A;
+}
+
+.result-banner.error {
+  display: block;
+  background: #FBEAE9;
+  border: 1px solid rgba(179, 38, 30, 0.25);
+  color: #B3261E;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.view-tab {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.87rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.view-tab.active {
+  background: var(--color-panel);
+  color: #fff;
+  border-color: var(--color-panel);
+}
+
+table.grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.grid-table th, .grid-table td {
+  border: 1px solid var(--color-border);
+  padding: 0.6rem 0.7rem;
+  font-size: 0.82rem;
+  text-align: center;
+  vertical-align: top;
+}
+
+.grid-table th {
+  background: #F7F8F6;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.grid-table td.period-label {
+  background: #F7F8F6;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cell-subject {
+  font-weight: 600;
+  display: block;
+}
+
+.cell-detail {
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.cell-empty {
+  color: #C9CFCB;
+}
+
+.cell-double {
+  background: #FBF3E8;
+}

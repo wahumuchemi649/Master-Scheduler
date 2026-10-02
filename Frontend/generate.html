@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Generate Timetable — School Timetable System</title>
+  <link rel="stylesheet" href="generate.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        Timetable
+        <span id="schoolNameTag">Loading…</span>
+      </div>
+
+      <div class="sidebar__label">SETUP</div>
+      <nav class="sidebar__nav">
+        <a href="dashboard.html" class="sidebar__link">
+          <span class="sidebar__step-num">1</span> School overview
+        </a>
+        <a href="forms-classes.html" class="sidebar__link">
+          <span class="sidebar__step-num">2</span> Grades &amp; streams
+        </a>
+        <a href="teachers.html" class="sidebar__link">
+          <span class="sidebar__step-num">3</span> Teachers
+        </a>
+        <a href="subjects.html" class="sidebar__link">
+          <span class="sidebar__step-num">4</span> Subjects &amp; requirements
+        </a>
+        <a href="option-blocks.html" class="sidebar__link">
+          <span class="sidebar__step-num">5</span> Electives
+        </a>
+        <a href="constraints.html" class="sidebar__link">
+          <span class="sidebar__step-num">6</span> Teacher constraints
+        </a>
+        <a href="periods.html" class="sidebar__link">
+          <span class="sidebar__step-num">7</span> Weekly periods
+        </a>
+        <a href="generate.html" class="sidebar__link active">
+          <span class="sidebar__step-num">8</span> Generate &amp; view timetable
+        </a>
+      </nav>
+
+      <div class="sidebar__term">
+        <div class="sidebar__term-label">ACTIVE TERM</div>
+        <div class="sidebar__term-value" id="termValue">—</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="main__header">
+        <div>
+          <div class="main__breadcrumb">Setup / Generate &amp; view timetable</div>
+          <h1 class="main__title">Generate &amp; view timetable</h1>
+          <p class="main__subtitle">Generate one grade at a time, then view the result by class, teacher, or the whole school.</p>
+        </div>
+      </div>
+
+      <div class="error-banner-inline" id="errorBanner" style="display:none; background:#FBEAE9; color:#B3261E; border:1px solid rgba(179,38,30,0.25); border-radius:6px; padding:0.7rem 0.9rem; font-size:0.88rem; margin-bottom:1.2rem;"></div>
+
+      <!-- term setup, shown only if no term exists yet -->
+      <div class="panel" id="termPanel" style="display:none;">
+        <h3>Set up this term</h3>
+        <p class="loading-text" style="margin-top:0; margin-bottom:1rem;">No active term found — create one before generating a timetable.</p>
+        <form class="inline-form" id="termForm">
+          <div class="field">
+            <label for="academicYearInput">Academic year</label>
+            <input type="number" id="academicYearInput" placeholder="2026" required>
+          </div>
+          <div class="field">
+            <label for="termNameInput">Term name</label>
+            <input type="text" id="termNameInput" placeholder="Term 1" required>
+          </div>
+          <button type="submit" class="btn-primary">Save term</button>
+        </form>
+      </div>
+
+      <!-- generate panel -->
+      <div class="panel">
+        <h3>Generate timetable</h3>
+        <form class="inline-form" id="generateForm">
+          <label class="checkbox-inline">
+            <input type="checkbox" id="regenerateCheckbox"> Clear and regenerate if one already exists
+          </label>
+          <button type="submit" class="btn-primary" id="generateBtn">Generate whole-school timetable</button>
+        </form>
+        <div class="result-banner" id="resultBanner"></div>
+      </div>
+
+      <!-- view panel -->
+      <div class="panel">
+        <h3>View timetable</h3>
+        <div class="view-tabs">
+          <button class="view-tab active" data-tab="stream">By class</button>
+          <button class="view-tab" data-tab="teacher">By teacher</button>
+          <button class="view-tab" data-tab="school">Whole school</button>
+        </div>
+
+        <div id="viewStream" class="inline-form" style="margin-bottom:1.2rem;">
+          <div class="field">
+            <label for="viewGradeSelect">Grade</label>
+            <select id="viewGradeSelect"><option value="">Select…</option></select>
+          </div>
+          <div class="field">
+            <label for="viewStreamSelect">Stream</label>
+            <select id="viewStreamSelect"><option value="">Select a grade first</option></select>
+          </div>
+          <button class="btn-primary" id="loadStreamBtn">Load</button>
+        </div>
+
+        <div id="viewTeacher" class="inline-form" style="display:none; margin-bottom:1.2rem;">
+          <div class="field">
+            <label for="viewTeacherSelect">Teacher</label>
+            <select id="viewTeacherSelect"><option value="">Select…</option></select>
+          </div>
+          <button class="btn-primary" id="loadTeacherBtn">Load</button>
+        </div>
+
+        <div id="viewSchool" style="display:none; margin-bottom:1.2rem;">
+          <button class="btn-primary" id="loadSchoolBtn">Load whole-school timetable</button>
+        </div>
+
+        <div id="timetableOutput">
+          <p class="loading-text">Choose what to view above.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    let schoolId = null;
+    let termId = null;
+    let periods = [];
+    let subjects = [];
+    let teachers = [];
+    let streamsForSelectedGrade = [];
+    let allStreams = []; // every stream in the school, for name lookups regardless of which grade is selected
+
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+    function showErr(msg) {
+      const el = document.getElementById("errorBanner");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+    function hideErr() {
+      document.getElementById("errorBanner").style.display = "none";
+    }
+
+    // ---------- term ----------
+
+    async function loadTerm() {
+      const res = await fetch(`${API_BASE}/schools/${schoolId}/current-term`, { credentials: "include" });
+      if (res.ok) {
+        const term = await res.json();
+        termId = term.id;
+        document.getElementById("termValue").textContent = `${term.term_name} · ${term.academic_year}`;
+        document.getElementById("termPanel").style.display = "none";
+      } else {
+        document.getElementById("termPanel").style.display = "block";
+        document.getElementById("termValue").textContent = "No term set";
+      }
+    }
+
+    document.getElementById("termForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideErr();
+      const payload = {
+        academic_year: parseInt(document.getElementById("academicYearInput").value),
+        term_name: document.getElementById("termNameInput").value.trim(),
+      };
+      try {
+        const res = await fetch(`${API_BASE}/schools/${schoolId}/term`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not save term");
+        loadTerm();
+      } catch (err) {
+        showErr(err.message);
+      }
+    });
+
+    // ---------- shared reference data ----------
+
+    async function loadReferenceData() {
+      const [gradesRes, subjectsRes, teachersRes, periodsRes] = await Promise.all([
+        fetch(`${API_BASE}/schools/${schoolId}/grades`, { credentials: "include" }),
+        fetch(`${API_BASE}/schools/${schoolId}/subjects`, { credentials: "include" }),
+        fetch(`${API_BASE}/schools/${schoolId}/teachers`, { credentials: "include" }),
+        fetch(`${API_BASE}/schools/${schoolId}/periods`, { credentials: "include" }),
+      ]);
+      const grades = await gradesRes.json();
+      subjects = await subjectsRes.json();
+      teachers = await teachersRes.json();
+      periods = (await periodsRes.json()).filter(p => p.isTeachingPeriod);
+
+      const gradeOptions = `<option value="">Select a grade…</option>` +
+        grades.map(g => `<option value="${g.id}">${g.grade_name}</option>`).join("");
+      document.getElementById("viewGradeSelect").innerHTML = gradeOptions;
+
+      document.getElementById("viewTeacherSelect").innerHTML =
+        `<option value="">Select…</option>` +
+        teachers.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+
+      // load every stream across every grade, for name lookups in teacher/whole-school views
+      const streamLists = await Promise.all(
+        grades.map(g => fetch(`${API_BASE}/schools/${schoolId}/grades/${g.id}/streams`, { credentials: "include" }).then(r => r.json()))
+      );
+      allStreams = streamLists.flat();
+    }
+
+    document.getElementById("viewGradeSelect").addEventListener("change", async (e) => {
+      const gradeId = e.target.value;
+      const streamSelect = document.getElementById("viewStreamSelect");
+      if (!gradeId) {
+        streamSelect.innerHTML = `<option value="">Select a grade first</option>`;
+        return;
+      }
+      const res = await fetch(`${API_BASE}/schools/${schoolId}/grades/${gradeId}/streams`, { credentials: "include" });
+      streamsForSelectedGrade = await res.json();
+      streamSelect.innerHTML = `<option value="">Select…</option>` +
+        streamsForSelectedGrade.map(s => `<option value="${s.id}">${s.streamName}</option>`).join("");
+    });
+
+    // ---------- generate ----------
+
+    document.getElementById("generateForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideErr();
+      const banner = document.getElementById("resultBanner");
+      banner.className = "result-banner";
+      banner.style.display = "none";
+
+      if (!termId) {
+        showErr("Set up a term before generating a timetable.");
+        return;
+      }
+
+      const btn = document.getElementById("generateBtn");
+      btn.disabled = true;
+      btn.textContent = "Generating…";
+
+      try {
+        const res = await fetch(`${API_BASE}/timetable/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            schoolId, termId,
+            regenerate: document.getElementById("regenerateCheckbox").checked,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Generation failed");
+
+        banner.textContent = data.message || "Timetable generated successfully.";
+        banner.className = "result-banner success";
+      } catch (err) {
+        banner.textContent = err.message;
+        banner.className = "result-banner error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Generate";
+      }
+    });
+
+    // ---------- view tabs ----------
+
+    document.querySelectorAll(".view-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById("viewStream").style.display = tab.dataset.tab === "stream" ? "flex" : "none";
+        document.getElementById("viewTeacher").style.display = tab.dataset.tab === "teacher" ? "flex" : "none";
+        document.getElementById("viewSchool").style.display = tab.dataset.tab === "school" ? "block" : "none";
+        document.getElementById("timetableOutput").innerHTML = `<p class="loading-text">Choose what to view above.</p>`;
+      });
+    });
+
+    // ---------- rendering ----------
+
+    function subjectName(id) { return (subjects.find(s => s.id === id) || {}).name || "—"; }
+    function teacherName(id) { return (teachers.find(t => t.id === id) || {}).name || "—"; }
+    function streamName(id) { return (allStreams.find(s => s.id === id) || {}).streamName || `#${id}`; }
+
+    function renderGrid(entries, detailFn) {
+      let html = `<table class="grid-table"><thead><tr><th>Period</th>${DAYS.map(d => `<th>${d}</th>`).join("")}</tr></thead><tbody>`;
+
+      for (const period of periods) {
+        html += `<tr><td class="period-label">${period.label}<br><span class="cell-detail">${period.startTime?.slice(0,5)}–${period.endTime?.slice(0,5)}</span></td>`;
+        for (const day of DAYS) {
+          const entry = entries.find(e => e.day === day && e.periodId === period.id);
+          if (entry) {
+            const cls = entry.doubleGroupId ? "cell-double" : "";
+            html += `<td class="${cls}"><span class="cell-subject">${subjectName(entry.subjectId)}</span><span class="cell-detail">${detailFn(entry)}</span></td>`;
+          } else {
+            html += `<td class="cell-empty">—</td>`;
+          }
+        }
+        html += `</tr>`;
+      }
+      html += `</tbody></table>`;
+      return html;
+    }
+
+    document.getElementById("loadStreamBtn").addEventListener("click", async () => {
+      hideErr();
+      if (!termId) { showErr("No active term."); return; }
+      const streamId = document.getElementById("viewStreamSelect").value;
+      if (!streamId) { showErr("Choose a stream."); return; }
+
+      const res = await fetch(`${API_BASE}/timetable/term/${termId}/stream/${streamId}`, { credentials: "include" });
+      const entries = await res.json();
+      document.getElementById("timetableOutput").innerHTML = entries.length
+        ? renderGrid(entries, e => teacherName(e.teacherId))
+        : `<p class="loading-text">No timetable generated yet for this class.</p>`;
+    });
+
+    document.getElementById("loadTeacherBtn").addEventListener("click", async () => {
+      hideErr();
+      if (!termId) { showErr("No active term."); return; }
+      const teacherId = document.getElementById("viewTeacherSelect").value;
+      if (!teacherId) { showErr("Choose a teacher."); return; }
+
+      const res = await fetch(`${API_BASE}/timetable/term/${termId}/teacher/${teacherId}`, { credentials: "include" });
+      const entries = await res.json();
+      document.getElementById("timetableOutput").innerHTML = entries.length
+        ? renderGrid(entries, e => e.streamId ? streamName(e.streamId) : "Elective group")
+        : `<p class="loading-text">No timetable generated yet for this teacher.</p>`;
+    });
+
+    document.getElementById("loadSchoolBtn").addEventListener("click", async () => {
+      hideErr();
+      if (!termId) { showErr("No active term."); return; }
+
+      const res = await fetch(`${API_BASE}/timetable/term/${termId}/school/${schoolId}`, { credentials: "include" });
+      const entries = await res.json();
+
+      if (entries.length === 0) {
+        document.getElementById("timetableOutput").innerHTML = `<p class="loading-text">No timetable generated yet.</p>`;
+        return;
+      }
+
+      // whole-school is too dense for a grid (many streams) — render as a sorted flat table instead
+      const dayOrder = Object.fromEntries(DAYS.map((d, i) => [d, i]));
+      const periodOrder = Object.fromEntries(periods.map((p, i) => [p.id, i]));
+      entries.sort((a, b) => (dayOrder[a.day] - dayOrder[b.day]) || (periodOrder[a.periodId] - periodOrder[b.periodId]));
+
+      let html = `<table class="teacher-table"><thead><tr><th>Day</th><th>Period</th><th>Subject</th><th>Teacher</th><th>Class</th></tr></thead><tbody>`;
+      for (const e of entries) {
+        const period = periods.find(p => p.id === e.periodId);
+        html += `<tr>
+          <td>${e.day}</td>
+          <td>${period ? period.label : "—"}</td>
+          <td class="name-cell">${subjectName(e.subjectId)}</td>
+          <td>${teacherName(e.teacherId)}</td>
+          <td>${e.streamId ? streamName(e.streamId) : "Elective group"}</td>
+        </tr>`;
+      }
+      html += `</tbody></table>`;
+      document.getElementById("timetableOutput").innerHTML = html;
+    });
+
+    (async function init() {
+      schoolId = await requireAuth();
+      if (!schoolId) return;
+
+      const schoolRes = await fetch(`${API_BASE}/schools/${schoolId}`, { credentials: "include" });
+      if (schoolRes.ok) {
+        const school = await schoolRes.json();
+        document.getElementById("schoolNameTag").textContent = school.name;
+      }
+
+      await loadTerm();
+      await loadReferenceData();
+    })();
+  </script>
+</body>
+</html>

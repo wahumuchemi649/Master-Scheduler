@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subjects & Requirements — School Timetable System</title>
+  <link rel="stylesheet" href="subjects.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        Timetable
+        <span id="schoolNameTag">Loading…</span>
+      </div>
+
+      <div class="sidebar__label">SETUP</div>
+      <nav class="sidebar__nav">
+        <a href="dashboard.html" class="sidebar__link">
+          <span class="sidebar__step-num">1</span> School overview
+        </a>
+        <a href="forms-classes.html" class="sidebar__link">
+          <span class="sidebar__step-num">2</span> Grades &amp; streams
+        </a>
+        <a href="teachers.html" class="sidebar__link">
+          <span class="sidebar__step-num">3</span> Teachers
+        </a>
+        <a href="subjects.html" class="sidebar__link active">
+          <span class="sidebar__step-num">4</span> Subjects &amp; requirements
+        </a>
+        <a href="option-blocks.html" class="sidebar__link">
+          <span class="sidebar__step-num">5</span> Electives
+        </a>
+        <a href="constraints.html" class="sidebar__link">
+          <span class="sidebar__step-num">6</span> Teacher constraints
+        </a>
+        <a href="periods.html" class="sidebar__link">
+          <span class="sidebar__step-num">7</span> Weekly periods
+        </a>
+        <a href="generate.html" class="sidebar__link">
+          <span class="sidebar__step-num">8</span> Generate &amp; view timetable
+        </a>
+      </nav>
+
+      <div class="sidebar__term">
+        <div class="sidebar__term-label">ACTIVE TERM</div>
+        <div class="sidebar__term-value" id="termValue">—</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="main__header">
+        <div>
+          <div class="main__breadcrumb">Setup / Subjects &amp; requirements</div>
+          <h1 class="main__title">Subjects &amp; lesson requirements</h1>
+          <p class="main__subtitle">Add subjects, then define how often each must appear per grade — and who teaches it.</p>
+        </div>
+      </div>
+
+      <div class="error-banner-inline" id="errorBanner" style="display:none; background:#FBEAE9; color:#B3261E; border:1px solid rgba(179,38,30,0.25); border-radius:6px; padding:0.7rem 0.9rem; font-size:0.88rem; margin-bottom:1.2rem;"></div>
+
+      <!-- Subjects -->
+      <h2 class="section-title">Subjects</h2>
+      <form class="add-subject-form" id="addSubjectForm">
+        <input type="text" id="subjectNameInput" placeholder="Subject name, e.g. Chemistry" required>
+        <select id="subjectResourceInput">
+          <option value="">No resource required</option>
+        </select>
+        <button type="button" class="small-link-btn" id="toggleNewResource" style="margin:0; align-self:center;">+ New resource</button>
+        <button type="submit" class="btn-primary">Add subject</button>
+      </form>
+
+      <div id="newResourceForm" style="display:none; background:var(--color-surface); border:1px solid var(--color-border); border-radius:8px; padding:1rem; margin-bottom:1.4rem;">
+        <div style="display:flex; gap:0.6rem; align-items:flex-end; flex-wrap:wrap;">
+          <div>
+            <label style="display:block; font-size:0.8rem; color:var(--color-text-muted); margin-bottom:0.3rem;">Resource name</label>
+            <input type="text" id="newResourceName" placeholder="e.g. Chemistry Lab" style="font-size:0.9rem; padding:0.55rem 0.75rem; border:1px solid var(--color-border); border-radius:6px;">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.8rem; color:var(--color-text-muted); margin-bottom:0.3rem;">Capacity</label>
+            <input type="number" id="newResourceCapacity" value="1" min="1" style="width:6rem; font-size:0.9rem; padding:0.55rem 0.75rem; border:1px solid var(--color-border); border-radius:6px;">
+          </div>
+          <button type="button" class="btn-primary" id="saveNewResource">Save resource</button>
+          <button type="button" class="btn-secondary" id="cancelNewResource" style="background:none; border:1px solid var(--color-border); border-radius:6px; padding:0.6rem 1rem; font-size:0.88rem; cursor:pointer;">Cancel</button>
+        </div>
+        <p class="field-hint" style="margin-top:0.5rem;">A resource is a shared space with limited capacity — e.g. one Chemistry Lab means two classes can't have double Chemistry at the same time.</p>
+      </div>
+
+      <div class="subject-chip-list" id="subjectChipList">
+        <p class="loading-text">Loading…</p>
+      </div>
+
+      <!-- Requirements -->
+      <h2 class="section-title">Lesson requirements</h2>
+      <form class="add-subject-form" id="addRequirementForm">
+        <select id="reqSubjectSelect" required>
+          <option value="">Subject…</option>
+        </select>
+        <select id="reqGradeSelect" required>
+          <option value="">Grade…</option>
+        </select>
+        <input type="number" id="reqLessonsInput" placeholder="Lessons/week" min="1" required style="width:8rem;">
+        <input type="number" id="reqDoublesInput" placeholder="Doubles/week" min="0" style="width:8rem;">
+        <input type="number" id="reqMaxPerDayInput" placeholder="Max/day" min="1" style="width:7rem;">
+        <button type="submit" class="btn-primary">Add requirement</button>
+      </form>
+
+      <table class="teacher-table">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>Grade</th>
+            <th>Lessons/week</th>
+            <th>Doubles/week</th>
+            <th>Max/day</th>
+            <th>Assigned teacher(s)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="reqTableBody">
+          <tr><td colspan="7" class="loading-text">Loading…</td></tr>
+        </tbody>
+      </table>
+    </main>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    let schoolId = null;
+    let subjects = [];
+    let grades = [];
+    let teachers = [];
+
+    function showErr(msg) {
+      const el = document.getElementById("errorBanner");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+    function hideErr() {
+      document.getElementById("errorBanner").style.display = "none";
+    }
+
+    // ---------- subjects ----------
+
+    async function loadSubjects() {
+      const [subjectsRes, resourcesRes] = await Promise.all([
+        fetch(`${API_BASE}/schools/${schoolId}/subjects`, { credentials: "include" }),
+        fetch(`${API_BASE}/schools/${schoolId}/resources`, { credentials: "include" }),
+      ]);
+      subjects = await subjectsRes.json();
+      const resources = resourcesRes.ok ? await resourcesRes.json() : [];
+
+      const resourceSelect = document.getElementById("subjectResourceInput");
+      resourceSelect.innerHTML = `<option value="">No resource required</option>` +
+        resources.map(r => `<option value="${r.id}">${r.name}</option>`).join("");
+
+      const chipList = document.getElementById("subjectChipList");
+      chipList.innerHTML = subjects.length
+        ? subjects.map(s => `
+            <span class="subject-chip">
+              ${s.name}
+              <button data-remove-subject="${s.id}">✕</button>
+            </span>
+          `).join("")
+        : `<p class="loading-text">No subjects yet — add your first one above.</p>`;
+
+      chipList.querySelectorAll("[data-remove-subject]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          hideErr();
+          try {
+            const res = await fetch(`${API_BASE}/schools/${schoolId}/subjects/${btn.dataset.removeSubject}`, {
+              method: "DELETE", credentials: "include",
+            });
+            if (!res.ok) throw new Error("Could not remove subject — it may still have requirements linked to it");
+            await loadSubjects();
+            await loadRequirements();
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+
+      // populate requirement-form subject dropdown
+      const reqSubjectSelect = document.getElementById("reqSubjectSelect");
+      reqSubjectSelect.innerHTML = `<option value="">Subject…</option>` +
+        subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+    }
+
+    document.getElementById("toggleNewResource").addEventListener("click", () => {
+      const form = document.getElementById("newResourceForm");
+      form.style.display = form.style.display === "block" ? "none" : "block";
+    });
+
+    document.getElementById("cancelNewResource").addEventListener("click", () => {
+      document.getElementById("newResourceForm").style.display = "none";
+      document.getElementById("newResourceName").value = "";
+      document.getElementById("newResourceCapacity").value = "1";
+    });
+
+    document.getElementById("saveNewResource").addEventListener("click", async () => {
+      hideErr();
+      const name = document.getElementById("newResourceName").value.trim();
+      const capacity = parseInt(document.getElementById("newResourceCapacity").value) || 1;
+      if (!name) {
+        showErr("Enter a resource name.");
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/schools/${schoolId}/resources`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name, capacity }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not add resource");
+
+        await loadSubjects(); // refreshes the resource dropdown too
+        document.getElementById("subjectResourceInput").value = data.id;
+        document.getElementById("newResourceForm").style.display = "none";
+        document.getElementById("newResourceName").value = "";
+        document.getElementById("newResourceCapacity").value = "1";
+      } catch (err) {
+        showErr(err.message);
+      }
+    });
+
+    document.getElementById("addSubjectForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideErr();
+      const name = document.getElementById("subjectNameInput").value.trim();
+      const requiresResourceId = document.getElementById("subjectResourceInput").value || null;
+      try {
+        const res = await fetch(`${API_BASE}/schools/${schoolId}/subjects`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name, requiresResourceId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not add subject");
+        document.getElementById("subjectNameInput").value = "";
+        loadSubjects();
+      } catch (err) {
+        showErr(err.message);
+      }
+    });
+
+    // ---------- grades (for dropdown) ----------
+
+    async function loadGrades() {
+      const res = await fetch(`${API_BASE}/schools/${schoolId}/grades`, { credentials: "include" });
+      grades = await res.json();
+      const select = document.getElementById("reqGradeSelect");
+      select.innerHTML = `<option value="">Grade…</option>` +
+        grades.map(g => `<option value="${g.id}">${g.grade_name}</option>`).join("");
+    }
+
+    // ---------- teachers (for assign dropdown) ----------
+
+    async function loadTeachersList() {
+      const res = await fetch(`${API_BASE}/schools/${schoolId}/teachers`, { credentials: "include" });
+      teachers = await res.json();
+    }
+
+    // ---------- requirements ----------
+
+    async function loadRequirements() {
+      const res = await fetch(`${API_BASE}/schools/${schoolId}/requirements`, { credentials: "include" });
+      const requirements = await res.json();
+      const body = document.getElementById("reqTableBody");
+
+      if (requirements.length === 0) {
+        body.innerHTML = `<tr><td colspan="7" class="loading-text">No requirements yet — add one above.</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = requirements.map(r => `
+        <tr>
+          <td class="name-cell">${r.subjectName}</td>
+          <td>${r.gradeName}</td>
+          <td>${r.lessonsPerWeek}</td>
+          <td>${r.doublesPerWeek || 0}</td>
+          <td>${r.maxLessonsPerDay ?? "—"}</td>
+          <td>
+            <div class="teacher-chips" id="teacherChips-${r.id}">
+              ${r.teachers.length
+                ? r.teachers.map(t => `
+                    <span class="teacher-chip">
+                      ${t.teacherName} (${t.streamName})
+                      <button data-unassign="${t.assignmentId}">✕</button>
+                    </span>
+                  `).join("")
+                : `<span class="loading-text">None yet</span>`
+              }
+            </div>
+            <button class="small-link-btn" data-toggle-assign="${r.id}" data-grade-id="${r.gradeId}" data-subject-id="${r.subjectId}">+ Assign teacher</button>
+            <div class="assign-row" id="assignRow-${r.id}" style="display:none;"></div>
+          </td>
+          <td>
+            <button class="row-actions" data-remove-req="${r.id}" style="border:none; background:none; color:var(--color-text-muted); cursor:pointer; font-size:0.82rem;">Remove</button>
+          </td>
+        </tr>
+      `).join("");
+
+      body.querySelectorAll("[data-remove-req]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          hideErr();
+          try {
+            const res = await fetch(`${API_BASE}/schools/${schoolId}/requirements/${btn.dataset.removeReq}`, {
+              method: "DELETE", credentials: "include",
+            });
+            if (!res.ok) throw new Error("Could not remove requirement");
+            loadRequirements();
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+
+      body.querySelectorAll("[data-unassign]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          hideErr();
+          const assignmentId = btn.dataset.unassign;
+          // find the teacher id from a sibling attribute isn't stored — use a lookup endpoint via teacherId isn't known here,
+          // so we call the assignment delete route directly using its own id (route is scoped under /teachers/<teacherId>/assignments/<id>,
+          // but since we don't have teacherId handy here, add a school-scoped delete instead — see note below)
+          try {
+            const res = await fetch(`${API_BASE}/assignments/${assignmentId}`, {
+              method: "DELETE", credentials: "include",
+            });
+            if (!res.ok) throw new Error("Could not remove assignment");
+            loadRequirements();
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+
+      body.querySelectorAll("[data-toggle-assign]").forEach(btn => {
+        btn.addEventListener("click", () => openAssignRow(btn.dataset.toggleAssign, btn.dataset.gradeId, btn.dataset.subjectId));
+      });
+    }
+
+    async function openAssignRow(reqId, gradeId, subjectId) {
+      const row = document.getElementById(`assignRow-${reqId}`);
+      if (row.style.display === "flex") {
+        row.style.display = "none";
+        return;
+      }
+
+      const streamsRes = await fetch(`${API_BASE}/schools/${schoolId}/grades/${gradeId}/streams`, { credentials: "include" });
+      const streams = await streamsRes.json();
+
+      row.innerHTML = `
+        <select id="assignTeacher-${reqId}">
+          <option value="">Teacher…</option>
+          ${teachers.map(t => `<option value="${t.id}">${t.name}</option>`).join("")}
+        </select>
+        <select id="assignStream-${reqId}">
+          <option value="">Stream…</option>
+          ${streams.map(s => `<option value="${s.id}">${s.streamName}</option>`).join("")}
+        </select>
+        <button data-confirm-assign="${reqId}" data-subject-id="${subjectId}">Assign</button>
+      `;
+      row.style.display = "flex";
+
+      row.querySelector("[data-confirm-assign]").addEventListener("click", async () => {
+        hideErr();
+        const teacherId = document.getElementById(`assignTeacher-${reqId}`).value;
+        const streamId = document.getElementById(`assignStream-${reqId}`).value;
+        if (!teacherId || !streamId) {
+          showErr("Choose both a teacher and a stream.");
+          return;
+        }
+        try {
+          const res = await fetch(`${API_BASE}/teachers/${teacherId}/assignments`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ subjectId: parseInt(subjectId), streamId: parseInt(streamId) }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Could not assign teacher");
+          loadRequirements();
+        } catch (err) {
+          showErr(err.message);
+        }
+      });
+    }
+
+    document.getElementById("addRequirementForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideErr();
+      const payload = {
+        subjectId: parseInt(document.getElementById("reqSubjectSelect").value),
+        gradeId: parseInt(document.getElementById("reqGradeSelect").value),
+        lessonsPerWeek: parseInt(document.getElementById("reqLessonsInput").value),
+        doublesPerWeek: parseInt(document.getElementById("reqDoublesInput").value || 0),
+        maxLessonsPerDay: document.getElementById("reqMaxPerDayInput").value
+          ? parseInt(document.getElementById("reqMaxPerDayInput").value) : null,
+      };
+      try {
+        const res = await fetch(`${API_BASE}/schools/${schoolId}/requirements`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not add requirement");
+        document.getElementById("addRequirementForm").reset();
+        loadRequirements();
+      } catch (err) {
+        showErr(err.message);
+      }
+    });
+
+    (async function init() {
+      schoolId = await requireAuth();
+      if (!schoolId) return;
+
+      const schoolRes = await fetch(`${API_BASE}/schools/${schoolId}`, { credentials: "include" });
+      if (schoolRes.ok) {
+        const school = await schoolRes.json();
+        document.getElementById("schoolNameTag").textContent = school.name;
+      }
+
+      const termRes = await fetch(`${API_BASE}/schools/${schoolId}/current-term`, { credentials: "include" });
+      if (termRes.ok) {
+        const term = await termRes.json();
+        document.getElementById("termValue").textContent = `${term.term_name} · ${term.academic_year}`;
+      }
+
+      await Promise.all([loadSubjects(), loadGrades(), loadTeachersList()]);
+      await loadRequirements();
+    })();
+  </script>
+</body>
+</html>

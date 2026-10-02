@@ -1,0 +1,55 @@
+@import url('layout.css');
+@import url('teachers.css');
+
+.period-form {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 1.8rem;
+}
+
+.period-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.period-form label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.period-form input, .period-form select {
+  font-size: 0.9rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.checkbox-field {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+}
+
+.checkbox-field input {
+  width: auto;
+}
+
+.type-pill {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.type-pill.teaching {
+  background: #F1F5F0;
+  color: #3B5C3A;
+}
+
+.type-pill.break {
+  background: #F5EFE6;
+  color: #8A6A34;
+}

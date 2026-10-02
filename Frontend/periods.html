@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekly Periods — School Timetable System</title>
+  <link rel="stylesheet" href="periods.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        Timetable
+        <span id="schoolNameTag">Loading…</span>
+      </div>
+
+      <div class="sidebar__label">SETUP</div>
+      <nav class="sidebar__nav">
+        <a href="dashboard.html" class="sidebar__link">
+          <span class="sidebar__step-num">1</span> School overview
+        </a>
+        <a href="forms-classes.html" class="sidebar__link">
+          <span class="sidebar__step-num">2</span> Grades &amp; streams
+        </a>
+        <a href="teachers.html" class="sidebar__link">
+          <span class="sidebar__step-num">3</span> Teachers
+        </a>
+        <a href="subjects.html" class="sidebar__link">
+          <span class="sidebar__step-num">4</span> Subjects &amp; requirements
+        </a>
+        <a href="option-blocks.html" class="sidebar__link">
+          <span class="sidebar__step-num">5</span> Electives
+        </a>
+        <a href="constraints.html" class="sidebar__link">
+          <span class="sidebar__step-num">6</span> Teacher constraints
+        </a>
+        <a href="periods.html" class="sidebar__link active">
+          <span class="sidebar__step-num">7</span> Weekly periods
+        </a>
+        <a href="generate.html" class="sidebar__link">
+          <span class="sidebar__step-num">8</span> Generate &amp; view timetable
+        </a>
+      </nav>
+
+      <div class="sidebar__term">
+        <div class="sidebar__term-label">ACTIVE TERM</div>
+        <div class="sidebar__term-value" id="termValue">—</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="main__header">
+        <div>
+          <div class="main__breadcrumb">Setup / Weekly periods</div>
+          <h1 class="main__title">Weekly periods</h1>
+          <p class="main__subtitle">Define your school day once — this structure repeats Monday through Friday.</p>
+        </div>
+      </div>
+
+      <div class="error-banner-inline" id="errorBanner" style="display:none; background:#FBEAE9; color:#B3261E; border:1px solid rgba(179,38,30,0.25); border-radius:6px; padding:0.7rem 0.9rem; font-size:0.88rem; margin-bottom:1.2rem;"></div>
+
+      <form class="period-form" id="periodForm">
+        <div class="field">
+          <label for="labelInput">Label</label>
+          <input type="text" id="labelInput" placeholder="e.g. Lesson 1" required>
+        </div>
+        <div class="field">
+          <label for="startInput">Start time</label>
+          <input type="time" id="startInput" required>
+        </div>
+        <div class="field">
+          <label for="endInput">End time</label>
+          <input type="time" id="endInput" required>
+        </div>
+        <div class="field checkbox-field">
+          <input type="checkbox" id="teachingCheckbox" checked>
+          <label for="teachingCheckbox" style="margin:0;">This is a teaching period</label>
+        </div>
+        <button type="submit" class="btn-primary">Add period</button>
+      </form>
+
+      <table class="teacher-table">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Type</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="periodTableBody">
+          <tr><td colspan="5" class="loading-text">Loading…</td></tr>
+        </tbody>
+      </table>
+    </main>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    let schoolId = null;
+
+    function showErr(msg) {
+      const el = document.getElementById("errorBanner");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+    function hideErr() {
+      document.getElementById("errorBanner").style.display = "none";
+    }
+
+    function formatTime(t) {
+      // backend returns "HH:MM:SS" — trim seconds for display
+      return t ? t.slice(0, 5) : "—";
+    }
+
+    function prefillStartTime(periods) {
+      const startInput = document.getElementById("startInput");
+      if (periods.length === 0) {
+        startInput.value = "";
+        return;
+      }
+      // periods come back ordered by startTime — the last one is the latest in the day so far
+      const lastPeriod = periods[periods.length - 1];
+      startInput.value = formatTime(lastPeriod.endTime);
+    }
+
+    async function loadPeriods() {
+      const res = await fetch(`${API_BASE}/schools/${schoolId}/periods`, { credentials: "include" });
+      const periods = await res.json();
+      const body = document.getElementById("periodTableBody");
+
+      prefillStartTime(periods);
+
+      if (periods.length === 0) {
+        body.innerHTML = `<tr><td colspan="5" class="loading-text">No periods yet — add your first one above.</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = periods.map(p => `
+        <tr>
+          <td class="name-cell">${p.label}</td>
+          <td>${formatTime(p.startTime)}</td>
+          <td>${formatTime(p.endTime)}</td>
+          <td><span class="type-pill ${p.isTeachingPeriod ? "teaching" : "break"}">${p.isTeachingPeriod ? "Teaching" : "Break"}</span></td>
+          <td>
+            <button data-remove="${p.id}" style="background:none; border:none; color:var(--color-text-muted); cursor:pointer; font-size:0.85rem;">Remove</button>
+          </td>
+        </tr>
+      `).join("");
+
+      body.querySelectorAll("[data-remove]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          hideErr();
+          try {
+            const res = await fetch(`${API_BASE}/schools/${schoolId}/periods/${btn.dataset.remove}`, {
+              method: "DELETE", credentials: "include",
+            });
+            if (!res.ok) throw new Error("Could not remove period");
+            loadPeriods();
+          } catch (err) {
+            showErr(err.message);
+          }
+        });
+      });
+    }
+
+    document.getElementById("periodForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideErr();
+
+      const payload = {
+        label: document.getElementById("labelInput").value.trim(),
+        startTime: document.getElementById("startInput").value,
+        endTime: document.getElementById("endInput").value,
+        isTeachingPeriod: document.getElementById("teachingCheckbox").checked,
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/schools/${schoolId}/periods`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not add period");
+        document.getElementById("periodForm").reset();
+        document.getElementById("teachingCheckbox").checked = true;
+        loadPeriods();
+      } catch (err) {
+        showErr(err.message);
+      }
+    });
+
+    (async function init() {
+      schoolId = await requireAuth();
+      if (!schoolId) return;
+
+      const schoolRes = await fetch(`${API_BASE}/schools/${schoolId}`, { credentials: "include" });
+      if (schoolRes.ok) {
+        const school = await schoolRes.json();
+        document.getElementById("schoolNameTag").textContent = school.name;
+      }
+
+      const termRes = await fetch(`${API_BASE}/schools/${schoolId}/current-term`, { credentials: "include" });
+      if (termRes.ok) {
+        const term = await termRes.json();
+        document.getElementById("termValue").textContent = `${term.term_name} · ${term.academic_year}`;
+      }
+
+      loadPeriods();
+    })();
+  </script>
+</body>
+</html>

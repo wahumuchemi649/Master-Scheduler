@@ -1,0 +1,125 @@
+@import url('layout.css');
+
+.grade-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.grade-block {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.grade-block__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 1.1rem;
+  background: #F7F8F6;
+}
+
+.grade-block__title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+}
+
+.icon-btn:hover {
+  color: var(--color-error);
+}
+
+.stream-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1rem 1.1rem;
+}
+
+.stream-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+  font-size: 0.88rem;
+}
+
+.stream-chip button {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0.1rem 0.35rem;
+}
+
+.stream-chip button:hover {
+  color: var(--color-error);
+}
+
+.inline-add-form {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0 1.1rem 1rem;
+}
+
+.inline-add-form input {
+  flex: 1;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.inline-add-form button {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-accent-dark);
+  background: none;
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.inline-add-form button:hover {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.top-add-form {
+  display: flex;
+  gap: 0.7rem;
+  margin-bottom: 1.6rem;
+}
+
+.top-add-form input {
+  flex: 1;
+  max-width: 20rem;
+  font-size: 0.92rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.empty-state {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  padding: 1.5rem;
+  text-align: center;
+}
