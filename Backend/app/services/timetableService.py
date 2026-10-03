@@ -12,24 +12,43 @@ from app.solver.adapters.output_writer import build_timetable_entries
 from app.solver.engine import solve
 
 
-def generate_timetable(school_id, term_id, grade_id, regenerate=False):
+def generate_timetable(school_id, term_id, regenerate=False):
     if regenerate:
         delete_entries_for_term(term_id)
 
-    solver_input = build_solver_input(school_id, term_id, grade_id)
+    solver_input, skipped = build_solver_input(school_id, term_id)
+
+    if not solver_input.units:
+        detail = ""
+        if skipped:
+            lines = [f"- {s['subjectName']} (teacher #{s['teacherId']}): {s['reason']}" for s in skipped]
+            detail = " Skipped assignments:\n" + "\n".join(lines)
+        raise ValueError(
+            "Nothing to schedule — no teacher assignment has a matching subject requirement yet."
+            + detail
+        )
+
     units_by_id = {u.unit_id: u for u in solver_input.units}
 
-    placements = solve(solver_input)
+    try:
+        placements = solve(solver_input,  time_limit_seconds=30)
+    except ValueError as e:
+        raise ValueError(f"Could not generate: {e}")
+
     if placements is None:
         raise ValueError(
-            "No valid timetable could be generated for this grade — check that lesson "
-            "counts, teacher availability, and resource capacity are consistent."
+            "No valid timetable could be generated — the rules you've set up can't all be "
+            "satisfied at once (check teacher availability, resource capacity, and lesson counts)."
         )
 
     entries = build_timetable_entries(term_id, units_by_id, placements)
     bulk_add_entries(entries)
-    return entries
 
+    message = f"Generated {len(entries)} lessons"
+    if skipped:
+        message += f" ({len(skipped)} assignment(s) skipped — missing subject requirements)"
+
+    return entries, message, skipped
 
 def get_stream_timetable(term_id, stream_id):
     return get_entries_for_stream(term_id, stream_id)

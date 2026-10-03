@@ -12,14 +12,14 @@ timetable_bp = Blueprint("timetable", __name__, url_prefix="/api/timetable")
 def generate_route():
     data = request.get_json()
     try:
-        entries = generate_timetable(
-            data.get("schoolId"), data.get("termId"), data.get("gradeId"),
-            data.get("regenerate", False),
+        entries, message, skipped = generate_timetable(
+            data.get("schoolId"), data.get("termId"), data.get("regenerate", False),
         )
-        return jsonify({"message": f"Generated {len(entries)} lessons", "entries": entries}), 201
+        return jsonify({"message": message, "entries": entries, "skipped": skipped}), 201
+    except TimeoutError as e:
+        return jsonify({"error": str(e)}), 408
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-
 
 def _serialize_entries(entries):
     return jsonify([

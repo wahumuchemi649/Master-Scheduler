@@ -44,3 +44,7 @@ def delete_option_group(option_group_id):
     db.session.delete(group)
     db.session.commit()
     return True
+
+def delete_option_groups_for_subject(subject_id):
+    OptionGroup.query.filter_by(subjectId=subject_id).delete()
+    db.session.commit()

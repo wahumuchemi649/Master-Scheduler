@@ -50,3 +50,9 @@ def delete_constraints_for_teacher(teacher_id):
 def delete_entries_for_teacher(teacher_id):
     TimetableEntry.query.filter_by(teacherId=teacher_id).delete()
     db.session.commit()    
+def delete_assignments_for_option_group(option_group_id):
+    TeacherAssignment.query.filter_by(optionGroupId=option_group_id).delete()
+    db.session.commit() 
+def delete_assignments_for_subject(subject_id):
+    TeacherAssignment.query.filter_by(subjectId=subject_id).delete()
+    db.session.commit()    

@@ -47,3 +47,6 @@ def delete_requirement(requirement_id):
     db.session.delete(requirement)
     db.session.commit()
     return True
+def delete_requirements_for_subject(subject_id):
+    SubjectRequirement.query.filter_by(subjectId=subject_id).delete()
+    db.session.commit()

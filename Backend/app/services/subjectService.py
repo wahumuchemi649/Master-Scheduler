@@ -1,4 +1,8 @@
-# app/services/subject_service.py
+from app.repositories.subjects import get_subject_by_id, delete_subject
+from app.repositories.subjectRequirement import delete_requirements_for_subject
+from app.repositories.teacherAssignment import delete_assignments_for_subject
+from app.repositories.optionBlock import delete_option_groups_for_subject
+from app.repositories.timetable import delete_entries_for_subject
 from app.repositories.subjects import (
     get_subject_by_id,
     get_all_subjects,
@@ -48,7 +52,13 @@ def edit_subject(subject_id, **fields):
 
 
 def remove_subject(subject_id):
-    deleted = delete_subject(subject_id)
-    if not deleted:
+    if not get_subject_by_id(subject_id):
         raise ValueError("Subject not found")
+
+    delete_entries_for_subject(subject_id)       # placed lessons for this subject
+    delete_assignments_for_subject(subject_id)   # teacher assignments to this subject
+    delete_option_groups_for_subject(subject_id) # elective groups built around this subject
+    delete_requirements_for_subject(subject_id)  # lesson-count requirements for this subject
+
+    delete_subject(subject_id)
     return True

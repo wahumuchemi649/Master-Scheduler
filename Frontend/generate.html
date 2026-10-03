@@ -261,6 +261,13 @@
 
         banner.textContent = data.message || "Timetable generated successfully.";
         banner.className = "result-banner success";
+
+        if (data.skipped && data.skipped.length > 0) {
+          banner.className = "result-banner error";
+          banner.innerHTML = `${data.message}<br><br><strong>Skipped:</strong><ul style="margin:0.4rem 0 0 1.2rem; padding:0;">` +
+            data.skipped.map(s => `<li>${s.subjectName} (teacher #${s.teacherId}): ${s.reason}</li>`).join("") +
+            `</ul>`;
+        }
       } catch (err) {
         banner.textContent = err.message;
         banner.className = "result-banner error";

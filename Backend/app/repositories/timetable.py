@@ -36,3 +36,10 @@ def delete_entries_for_term(term_id):
     TimetableEntry.query.filter_by(termId=term_id).delete()
     db.session.commit()
     return True
+def delete_entries_for_option_group(option_group_id):
+    TimetableEntry.query.filter_by(optionGroupId=option_group_id).delete()
+    db.session.commit()       
+
+def delete_entries_for_subject(subject_id):
+    TimetableEntry.query.filter_by(subjectId=subject_id).delete()
+    db.session.commit()    

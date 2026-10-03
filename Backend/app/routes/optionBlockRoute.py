@@ -47,8 +47,9 @@ def create_group_route(grade_id, option_block_id):
         return jsonify({"error": str(e)}), 400
 
 
-@option_blocks_bp.route("/groups/<int:option_group_id>", methods=["DELETE"])
-def delete_group_route(grade_id, option_group_id):
+# app/routes/optionBlockRoute.py — fix this one route
+@option_blocks_bp.route("/<int:option_block_id>/groups/<int:option_group_id>", methods=["DELETE"])
+def delete_group_route(grade_id, option_block_id, option_group_id):
     try:
         remove_option_group(option_group_id)
         return "", 204

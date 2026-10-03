@@ -1,36 +1,14 @@
-from app.solver.constraints import (
-    teacher_available,
-    owner_available,
-    resource_available,
-    under_daily_subject_max,
-    within_max_consecutive,
-)
+# app/solver/engine.py
+from ortools.sat.python import cp_model
 
 
-class SolverState:
-    def __init__(self, solver_input):
-        self.input = solver_input
-        self.period_index = {p.id: i for i, p in enumerate(solver_input.periods)}
-        self.teacher_busy = {}
-        self.owner_busy = {}
-        self.resource_bookings = {}
-        self.subject_day_count = {}
-        self.teacher_day_periods = {}
-        self.placements = []
-        self._double_group_counter = 0
-
-    def next_double_group_id(self):
-        self._double_group_counter += 1
-        return self._double_group_counter
-
-
-def build_tasks(solver_input):
-    """Flatten option blocks + standalone units into atomic placement tasks,
-    ordered: block doubles, block singles, unit doubles, unit singles."""
+def _group_blocks(solver_input):
+    """Turn units (and option-block groups) into lists of 'blocks' — each block is
+    a single lesson (size=1) or a double lesson (size=2) that needs a slot."""
     units_by_id = {u.unit_id: u for u in solver_input.units}
     blocked_unit_ids = {uid for b in solver_input.option_blocks for uid in b.unit_ids}
 
-    tasks = []
+    tasks = []  # each: {"unit_ids": [...], "blocks": [2, 2, 1, 1, ...]}
 
     for block in solver_input.option_blocks:
         rep = units_by_id[block.unit_ids[0]]
@@ -38,185 +16,173 @@ def build_tasks(solver_input):
             other = units_by_id[other_id]
             if other.lessons_per_week != rep.lessons_per_week or other.doubles_per_week != rep.doubles_per_week:
                 raise ValueError(
-                    f"Option block {block.block_id}: all subjects in a block must share the same "
-                    f"lessons_per_week and doubles_per_week (mismatch between units {rep.unit_id} and {other.unit_id})"
+                    f"Option block {block.block_id}: all subjects must share the same "
+                    f"lessons_per_week and doubles_per_week (mismatch between {rep.unit_id} and {other.unit_id})"
                 )
-        for _ in range(rep.doubles_per_week):
-            tasks.append({"type": "block_double", "block": block})
-        singles = rep.lessons_per_week - (2 * rep.doubles_per_week)
-        for _ in range(singles):
-            tasks.append({"type": "block_single", "block": block})
+        doubles = rep.doubles_per_week
+        singles = rep.lessons_per_week - 2 * doubles
+        tasks.append({"unit_ids": block.unit_ids, "blocks": [2] * doubles + [1] * singles})
 
-    standalone_units = [u for u in solver_input.units if u.unit_id not in blocked_unit_ids]
-    for unit in standalone_units:
-        for _ in range(unit.doubles_per_week):
-            tasks.append({"type": "unit_double", "unit": unit})
-        singles = unit.lessons_per_week - (2 * unit.doubles_per_week)
-        for _ in range(singles):
-            tasks.append({"type": "unit_single", "unit": unit})
+    for unit in solver_input.units:
+        if unit.unit_id in blocked_unit_ids:
+            continue
+        doubles = unit.doubles_per_week
+        singles = unit.lessons_per_week - 2 * doubles
+        tasks.append({"unit_ids": [unit.unit_id], "blocks": [2] * doubles + [1] * singles})
 
-    tasks.sort(key=lambda t: {"block_double": 0, "block_single": 1, "unit_double": 2, "unit_single": 3}[t["type"]])
     return tasks
 
 
-def solve(solver_input):
-    state = SolverState(solver_input)
-    tasks = build_tasks(solver_input)
+def _compute_valid_starts(size, teacher_id, solver_input, periods, period_index, adjacent_set, P, num_days, day_index):
+    base = []
+    if size == 2:
+        for d in range(num_days):
+            for i in range(P - 1):
+                if (periods[i].id, periods[i + 1].id) in adjacent_set:
+                    base.append((d, i))
+    else:
+        for d in range(num_days):
+            for i in range(P):
+                base.append((d, i))
+
+    blocked = set()
+    for c in solver_input.teacher_constraints:
+        if c.teacher_id != teacher_id or c.type != "unavailable":
+            continue
+        d = day_index.get(c.parameters.get("day"))
+        if d is None:
+            continue
+        period_ids = c.parameters.get("period_ids")
+        if period_ids is None:
+            blocked.add((d, "ALL"))
+        else:
+            for pid in period_ids:
+                if pid in period_index:
+                    blocked.add((d, period_index[pid]))
+
+    valid = []
+    for d, i in base:
+        if (d, "ALL") in blocked:
+            continue
+        if size == 2 and ((d, i) in blocked or (d, i + 1) in blocked):
+            continue
+        if size == 1 and (d, i) in blocked:
+            continue
+        valid.append(d * P + i)
+    return valid
+
+
+def solve(solver_input, time_limit_seconds=30):
     units_by_id = {u.unit_id: u for u in solver_input.units}
+    tasks = _group_blocks(solver_input)
 
-    success = _backtrack(tasks, 0, state, units_by_id)
-    if not success:
-        return None
-    return state.placements
+    periods = solver_input.periods
+    P = len(periods)
+    days = solver_input.days
+    num_days = len(days)
+    day_index = {d: i for i, d in enumerate(days)}
+    period_index = {p.id: i for i, p in enumerate(periods)}
+    adjacent_set = set(solver_input.double_adjacent_pairs)
 
+    model = cp_model.CpModel()
+    block_vars = []  # {task, block_index, size, start, interval}
 
-def _backtrack(tasks, index, state, units_by_id):
-    if index == len(tasks):
-        return True
+    for task in tasks:
+        teacher_ids = [units_by_id[uid].teacher_id for uid in task["unit_ids"]]
+        for b_idx, size in enumerate(task["blocks"]):
+            # intersect valid starts across every teacher involved (matters for option-block groups)
+            valid_sets = [
+                set(_compute_valid_starts(size, tid, solver_input, periods, period_index, adjacent_set, P, num_days, day_index))
+                for tid in teacher_ids
+            ]
+            domain = set.intersection(*valid_sets) if valid_sets else set()
+            if not domain:
+                raise ValueError(
+                    f"No valid slot exists for {task['unit_ids']} (block {b_idx}) — "
+                    f"check teacher availability and double-period adjacency in your period structure"
+                )
+            start = model.NewIntVarFromDomain(
+                cp_model.Domain.FromValues(sorted(domain)), f"start_{task['unit_ids'][0]}_{b_idx}"
+            )
+            interval = model.NewFixedSizeIntervalVar(start, size, f"iv_{task['unit_ids'][0]}_{b_idx}")
+            block_vars.append({"task": task, "block_index": b_idx, "size": size, "start": start, "interval": interval})
 
-    task = tasks[index]
-    for candidate in _generate_candidates(task, state, units_by_id):
-        _apply(task, candidate, state, units_by_id)
-        if _backtrack(tasks, index + 1, state, units_by_id):
-            return True
-        _undo(task, candidate, state, units_by_id)
+    unit_blocks = {u.unit_id: [] for u in solver_input.units}
+    for bv in block_vars:
+        for uid in bv["task"]["unit_ids"]:
+            unit_blocks[uid].append(bv)
 
-    return False
+    # teacher not double-booked
+    teacher_intervals = {}
+    for unit in solver_input.units:
+        teacher_intervals.setdefault(unit.teacher_id, []).extend(b["interval"] for b in unit_blocks[unit.unit_id])
+    for intervals in teacher_intervals.values():
+        if len(intervals) > 1:
+            model.AddNoOverlap(intervals)
 
+    # owner (stream / option-group) not double-booked
+    owner_intervals = {}
+    for unit in solver_input.units:
+        key = (unit.owner_type, unit.owner_id)
+        owner_intervals.setdefault(key, []).extend(b["interval"] for b in unit_blocks[unit.unit_id])
+    for intervals in owner_intervals.values():
+        if len(intervals) > 1:
+            model.AddNoOverlap(intervals)
 
-def _generate_candidates(task, state, units_by_id):
-    days = state.input.days
-
-    if task["type"] in ("block_double", "unit_double"):
-        for day in days:
-            for (pid_a, pid_b) in state.input.double_adjacent_pairs:
-                if _double_valid(task, day, pid_a, pid_b, state, units_by_id):
-                    yield {"day": day, "period_ids": [pid_a, pid_b]}
-
-    else:  # block_single, unit_single
-        for day in days:
-            for period in state.input.periods:
-                if _single_valid(task, day, period.id, state, units_by_id):
-                    yield {"day": day, "period_ids": [period.id]}
-
-
-def _units_for_task(task, units_by_id):
-    if task["type"].startswith("block"):
-        return [units_by_id[uid] for uid in task["block"].unit_ids]
-    return [task["unit"]]
-
-
-def _single_valid(task, day, period_id, state, units_by_id):
-    units = _units_for_task(task, units_by_id)
-    idx = state.period_index[period_id]
-
-    for unit in units:
-        if not teacher_available(state, unit.teacher_id, day, period_id):
-            return False
-        if not owner_available(state, unit.owner_type, unit.owner_id, day, period_id):
-            return False
-        if not resource_available(state, unit.resource_id, day, period_id):
-            return False
-        if not under_daily_subject_max(
-            state, unit.owner_type, unit.owner_id, unit.subject_id, day, unit.max_lessons_per_day, 1
-        ):
-            return False
-        if not within_max_consecutive(state, unit.teacher_id, day, [idx]):
-            return False
-
-    # resource contention *between* units in the same block (different subjects, different resources, same slot)
-    if not _resources_compatible_within_task(units, day, [period_id], state):
-        return False
-
-    return True
-
-
-def _double_valid(task, day, pid_a, pid_b, state, units_by_id):
-    units = _units_for_task(task, units_by_id)
-    idx_a, idx_b = state.period_index[pid_a], state.period_index[pid_b]
-
-    for unit in units:
-        for pid, idx in ((pid_a, idx_a), (pid_b, idx_b)):
-            if not teacher_available(state, unit.teacher_id, day, pid):
-                return False
-            if not owner_available(state, unit.owner_type, unit.owner_id, day, pid):
-                return False
-            if not resource_available(state, unit.resource_id, day, pid):
-                return False
-        if not under_daily_subject_max(
-            state, unit.owner_type, unit.owner_id, unit.subject_id, day, unit.max_lessons_per_day, 2
-        ):
-            return False
-        if not within_max_consecutive(state, unit.teacher_id, day, [idx_a, idx_b]):
-            return False
-
-    if not _resources_compatible_within_task(units, day, [pid_a, pid_b], state):
-        return False
-
-    return True
-
-
-def _resources_compatible_within_task(units, day, period_ids, state):
-    """Within one block placement, two different subjects might need the same resource
-    at the same slot (rare, but check it) — this guards against that edge case."""
-    seen = {}
-    for unit in units:
+    # resource capacity
+    resource_intervals, resource_demands = {}, {}
+    for unit in solver_input.units:
         if unit.resource_id is None:
             continue
-        for pid in period_ids:
-            key = (day, pid, unit.resource_id)
-            seen[key] = seen.get(key, 0) + 1
-            capacity = state.input.resource_capacity.get(unit.resource_id, 1)
-            if seen[key] > capacity:
-                return False
-    return True
+        blocks = unit_blocks[unit.unit_id]
+        resource_intervals.setdefault(unit.resource_id, []).extend(b["interval"] for b in blocks)
+        resource_demands.setdefault(unit.resource_id, []).extend([1] * len(blocks))
+    for rid, intervals in resource_intervals.items():
+        capacity = solver_input.resource_capacity.get(rid, 1)
+        model.AddCumulative(intervals, resource_demands[rid], capacity)
 
+    # max lessons per day, per unit
+    for unit in solver_input.units:
+        if unit.max_lessons_per_day is None:
+            continue
+        blocks = unit_blocks[unit.unit_id]
+        if not blocks:
+            continue
+        day_vars = []
+        for bv in blocks:
+            dv = model.NewIntVar(0, num_days - 1, f"day_{unit.unit_id}_{bv['block_index']}")
+            model.AddDivisionEquality(dv, bv["start"], P)
+            day_vars.append((dv, bv["size"]))
+        for d in range(num_days):
+            terms = []
+            for dv, size in day_vars:
+                is_d = model.NewBoolVar(f"isday_{unit.unit_id}_{d}_{id(dv)}")
+                model.Add(dv == d).OnlyEnforceIf(is_d)
+                model.Add(dv != d).OnlyEnforceIf(is_d.Not())
+                terms.append(size * is_d)
+            model.Add(sum(terms) <= unit.max_lessons_per_day)
 
-def _apply(task, candidate, state, units_by_id):
-    units = _units_for_task(task, units_by_id)
-    day = candidate["day"]
-    period_ids = candidate["period_ids"]
-    is_double = len(period_ids) == 2
-    double_group_id = state.next_double_group_id() if is_double else None
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = time_limit_seconds
+    solver.parameters.num_search_workers = 8
+    status = solver.Solve(model)
 
-    for unit in units:
-        for pid in period_ids:
-            idx = state.period_index[pid]
-            state.teacher_busy[(day, pid, unit.teacher_id)] = True
-            state.owner_busy[(day, pid, unit.owner_type, unit.owner_id)] = True
-            if unit.resource_id is not None:
-                key = (day, pid, unit.resource_id)
-                state.resource_bookings[key] = state.resource_bookings.get(key, 0) + 1
-            state.teacher_day_periods.setdefault((unit.teacher_id, day), []).append(idx)
+    if status == cp_model.UNKNOWN:
+        raise TimeoutError(f"Generation did not finish within {time_limit_seconds} seconds")
+    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return None
 
-        day_key = (unit.owner_type, unit.owner_id, unit.subject_id, day)
-        state.subject_day_count[day_key] = state.subject_day_count.get(day_key, 0) + len(period_ids)
+    double_group_counter = 0
+    placements = []
+    for bv in block_vars:
+        start_val = solver.Value(bv["start"])
+        day = days[start_val // P]
+        period_id = periods[start_val % P].id
+        double_group_id = None
+        if bv["size"] == 2:
+            double_group_counter += 1
+            double_group_id = double_group_counter
+        for uid in bv["task"]["unit_ids"]:
+            placements.append({"unit_id": uid, "day": day, "period_id": period_id, "double_group_id": double_group_id})
 
-        for pid in period_ids:
-            state.placements.append({
-                "unit_id": unit.unit_id, "day": day, "period_id": pid, "double_group_id": double_group_id
-            })
-
-
-def _undo(task, candidate, state, units_by_id):
-    units = _units_for_task(task, units_by_id)
-    day = candidate["day"]
-    period_ids = candidate["period_ids"]
-
-    for unit in units:
-        for pid in period_ids:
-            idx = state.period_index[pid]
-            del state.teacher_busy[(day, pid, unit.teacher_id)]
-            del state.owner_busy[(day, pid, unit.owner_type, unit.owner_id)]
-            if unit.resource_id is not None:
-                key = (day, pid, unit.resource_id)
-                state.resource_bookings[key] -= 1
-                if state.resource_bookings[key] == 0:
-                    del state.resource_bookings[key]
-            state.teacher_day_periods[(unit.teacher_id, day)].remove(idx)
-
-        day_key = (unit.owner_type, unit.owner_id, unit.subject_id, day)
-        state.subject_day_count[day_key] -= len(period_ids)
-
-    for _ in range(len(units) * len(period_ids)):
-        state.placements.pop()
+    return placements
