@@ -1,4 +1,6 @@
 # app/__init__.py
+import logging
+
 from flask import Flask
 from flask.globals import request
 from config import Config
@@ -8,6 +10,9 @@ from flask_cors import CORS
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+       
+    logging.getLogger("flask_cors").level = logging.DEBUG
+    print("Allowed origins:", app.config["FRONTEND_ORIGINS"])
     CORS(app, origins=app.config["FRONTEND_ORIGINS"],supports_credentials=True)
     @app.before_request
     def log_origin():
