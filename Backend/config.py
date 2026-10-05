@@ -21,7 +21,11 @@ class Config:
     DB_SSL_CA = os.environ.get("DB_SSL_CA")  # only set in production
     if DB_SSL_CA:
         SQLALCHEMY_ENGINE_OPTIONS = {"connect_args": {"ssl": {"ca": DB_SSL_CA}}}
-    FRONTEND_ORIGINS = os.environ.get("FRONTEND_ORIGINS", "").split(",")
+    FRONTEND_ORIGINS = [
+             o.strip().strip('"').strip("'").rstrip("/")
+             for o in os.environ.get("FRONTEND_ORIGINS", "").split(",")
+             if o.strip()
+             ]
     # config.py, inside your Config class
     SESSION_COOKIE_SAMESITE = "None"
     SESSION_COOKIE_SECURE = True
