@@ -1,8 +1,8 @@
-const API_BASE =
-  window.location.hostname === "localhost"
-    ? "http://localhost:5000/api"
-    : "https://master-scheduler-1w7t.onrender.com/api";
+const isLocal = ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
 
+const API_BASE = isLocal
+  ? `http://${window.location.hostname || "localhost"}:5000/api`
+  : "https://master-scheduler-1w7t.onrender.com/api";
 
 // renders the decorative grid on the left panel — a few cells lit up
 // like lessons placed on a weekly timetable
