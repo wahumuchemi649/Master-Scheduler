@@ -29,7 +29,7 @@ body {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 15rem 1fr;
+  grid-template-columns: 15rem minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -90,6 +90,11 @@ body {
   color: #fff;
 }
 
+.sidebar__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
 .sidebar__link.active {
   background: var(--color-panel-active);
   color: #fff;
@@ -127,6 +132,7 @@ body {
 
 .main {
   padding: 2.2rem 2.6rem;
+  min-width: 0;
 }
 
 .main__header {
@@ -171,6 +177,8 @@ body {
   color: var(--color-text-muted);
 }
 
+/* ---------- cards ---------- */
+
 .cards {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
@@ -207,6 +215,7 @@ body {
 
 .info-item div {
   font-size: 0.95rem;
+  overflow-wrap: anywhere;
 }
 
 .badges {
@@ -236,34 +245,21 @@ body {
   font-size: 0.9rem;
 }
 
-@media (max-width: 900px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    display: none;
-  }
-
-  .cards {
-    grid-template-columns: 1fr;
-  }
-}
-/* ---------- tablet & mobile ---------- */
+/* ---------- tablet & mobile (900px and below) ---------- */
 
 @media (max-width: 900px) {
-
-  /* single column instead of sidebar + content (restored) */
+  /* one column: top bar above content */
   .app-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  /* sidebar becomes a sticky top bar */
+  /* sidebar becomes a sticky top bar (stays visible, no display: none) */
   .sidebar {
+    display: flex;
+    flex-direction: column;
     position: sticky;
     top: 0;
     z-index: 20;
-    flex-direction: column;
     padding: 0.8rem 0 0;
   }
 
@@ -282,13 +278,13 @@ body {
     margin-top: 0;
   }
 
-  /* hide the extras that don't fit a slim bar */
+  /* extras that don't fit a slim bar */
   .sidebar__label,
   .sidebar__term {
     display: none;
   }
 
-  /* nav turns into a horizontal scrolling strip */
+  /* nav becomes a horizontal scrolling strip */
   .sidebar__nav {
     flex: none;
     flex-direction: row;
@@ -325,7 +321,8 @@ body {
     grid-template-columns: 1fr;
   }
 }
-/* ---------- phones ---------- */
+
+/* ---------- phones (600px and below) ---------- */
 
 @media (max-width: 600px) {
   .main {
