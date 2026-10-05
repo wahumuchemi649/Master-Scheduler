@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "http://localhost:5000/api"||"https://master-scheduler-1w7t.onrender.com/api";
 
 // renders the decorative grid on the left panel — a few cells lit up
 // like lessons placed on a weekly timetable
