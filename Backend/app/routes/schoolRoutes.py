@@ -1,7 +1,7 @@
 # app/routes/schools.py
 from flask import Blueprint, request, jsonify
 from app.services.schoolService import get_school_details
-from app.repositories.school import get_current_term
+from app.repositories.school import get_current_term, health
 from app.services.dashboardServices import get_school_summary
 from app.services.termService import create_term
 
@@ -42,4 +42,8 @@ def create_term_route(school_id):
         return jsonify({"id": term.id, "academic_year": term.academic_year, "term_name": term.term_name}), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
+@schools_bp.route("/health", methods=["GET"])
+def health_check():
+    return health()    
 

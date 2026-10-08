@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, session
 from app.services.auth_service import signup_school, login_school
 
+
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
@@ -42,3 +43,6 @@ def me():
     if not school_id:
         return jsonify({"error": "Not logged in"}), 401
     return jsonify({"id": school_id}), 200
+
+
+

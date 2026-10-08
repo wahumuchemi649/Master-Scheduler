@@ -1,5 +1,6 @@
 from app.models.data import School, Term
 from app.extensions import db
+from sqlalchemy import text
 def get_school_by_id(school_id):
     return School.query.get(school_id)
 
@@ -28,3 +29,6 @@ def add_school(school_id, name, address, contact_name, primary_contact, primary_
     db.session.add(new_school)
     db.session.commit()
     return new_school
+def health():
+    db.session.execute(text("SELECT COUNT(*) FROM schools"))
+    return {"status": "ok"}, 200
