@@ -1,29 +1,36 @@
+from collections import defaultdict
 from app.models.data import SubjectRequirement, Subject, Grade, TeacherAssignment, Teacher, Stream
 
 
 def get_requirements_overview(school_id):
     requirements = SubjectRequirement.query.filter_by(schoolId=school_id).all()
+    if not requirements:
+        return []
+
+    subjects = {s.id: s for s in Subject.query.filter_by(schoolId=school_id).all()}
+    grades = {g.id: g for g in Grade.query.filter_by(schoolId=school_id).all()}
+    streams = {s.id: s for s in Stream.query.filter(Stream.gradeId.in_(list(grades))).all()} if grades else {}
+    assignments = (
+        TeacherAssignment.query.filter(TeacherAssignment.streamId.in_(list(streams))).all()
+        if streams else []
+    )
+    teachers = {t.id: t for t in Teacher.query.filter_by(schoolId=school_id).all()}
+
+    assignments_by_subject = defaultdict(list)
+    for a in assignments:
+        assignments_by_subject[a.subjectId].append(a)
+
     overview = []
-
     for r in requirements:
-        subject = Subject.query.get(r.subjectId)
-        grade = Grade.query.get(r.gradeId)
+        subject = subjects.get(r.subjectId)
+        grade = grades.get(r.gradeId)
 
-        stream_ids = [s.id for s in Stream.query.filter_by(gradeId=r.gradeId).all()]
-        assignments = (
-            TeacherAssignment.query.filter(
-                TeacherAssignment.subjectId == r.subjectId,
-                TeacherAssignment.streamId.in_(stream_ids),
-            ).all()
-            if stream_ids else []
-        )
-
-        teachers = []
-        for a in assignments:
-            teacher = Teacher.query.get(a.teacherId)
-            stream = Stream.query.get(a.streamId)
-            if teacher and stream:
-                teachers.append({
+        teacher_entries = []
+        for a in assignments_by_subject[r.subjectId]:
+            stream = streams.get(a.streamId)
+            teacher = teachers.get(a.teacherId)
+            if stream and teacher and stream.gradeId == r.gradeId:
+                teacher_entries.append({
                     "assignmentId": a.id,
                     "teacherId": teacher.id,
                     "teacherName": teacher.name,
@@ -40,7 +47,7 @@ def get_requirements_overview(school_id):
             "lessonsPerWeek": r.lessonsPerWeek,
             "doublesPerWeek": r.doublesPerWeek,
             "maxLessonsPerDay": r.maxLessonsPerDay,
-            "teachers": teachers,
+            "teachers": teacher_entries,
         })
 
     return overview
