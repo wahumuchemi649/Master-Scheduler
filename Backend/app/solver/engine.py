@@ -74,7 +74,7 @@ def _compute_valid_starts(size, teacher_id, solver_input, periods, period_index,
     return valid
 
 
-def solve(solver_input, time_limit_seconds=30):
+def solve(solver_input, time_limit_seconds=120):
     units_by_id = {u.unit_id: u for u in solver_input.units}
     tasks = _group_blocks(solver_input)
 

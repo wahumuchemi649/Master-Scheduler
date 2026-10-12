@@ -27,7 +27,7 @@ def generate_timetable(school_id, term_id, regenerate=False):
     units_by_id = {u.unit_id: u for u in solver_input.units}
 
     try:
-        placements = solve(solver_input, time_limit_seconds=30)
+        placements = solve(solver_input, time_limit_seconds=120)
     except ValueError as e:
         raise GenerationError("Generation stopped:", [str(e)])
 
