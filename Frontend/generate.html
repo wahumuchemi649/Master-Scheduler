@@ -228,6 +228,28 @@
         streamsForSelectedGrade.map(s => `<option value="${s.id}">${s.streamName}</option>`).join("");
     });
 
+    // ---------- result banner ----------
+
+    function showResult(banner, kind, title, lines) {
+      banner.className = "result-banner " + kind;
+      banner.replaceChildren();
+      const heading = document.createElement("strong");
+      heading.textContent = title;
+      banner.appendChild(heading);
+      if (lines && lines.length) {
+        const list = document.createElement("ul");
+        list.style.margin = "0.5rem 0 0 1.2rem";
+        list.style.padding = "0";
+        for (const line of lines) {
+          const li = document.createElement("li");
+          li.textContent = line;
+          list.appendChild(li);
+        }
+        banner.appendChild(list);
+      }
+      banner.style.display = "block"; // inline display:none from the reset below would otherwise hide it
+    }
+
     // ---------- generate ----------
 
     document.getElementById("generateForm").addEventListener("submit", async (e) => {
@@ -243,37 +265,47 @@
       }
 
       const btn = document.getElementById("generateBtn");
+      const originalLabel = btn.textContent;
       btn.disabled = true;
-      btn.textContent = "Generating…";
+      btn.textContent = "Generating… this can take up to a minute";
 
       try {
-        const res = await fetch(`${API_BASE}/timetable/generate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            schoolId, termId,
-            regenerate: document.getElementById("regenerateCheckbox").checked,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Generation failed");
-
-        banner.textContent = data.message || "Timetable generated successfully.";
-        banner.className = "result-banner success";
-
-        if (data.skipped && data.skipped.length > 0) {
-          banner.className = "result-banner error";
-          banner.innerHTML = `${data.message}<br><br><strong>Skipped:</strong><ul style="margin:0.4rem 0 0 1.2rem; padding:0;">` +
-            data.skipped.map(s => `<li>${s.subjectName} (teacher #${s.teacherId}): ${s.reason}</li>`).join("") +
-            `</ul>`;
+        let res;
+        try {
+          res = await fetch(`${API_BASE}/timetable/generate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              schoolId, termId,
+              regenerate: document.getElementById("regenerateCheckbox").checked,
+            }),
+          });
+        } catch (networkErr) {
+          showResult(banner, "error", "Couldn't reach the server.", [
+            "The free hosting may still be waking up, or the request took too long. Wait a minute and try again.",
+          ]);
+          return;
         }
-      } catch (err) {
-        banner.textContent = err.message;
-        banner.className = "result-banner error";
+
+        let data = {};
+        try { data = await res.json(); } catch (_) { /* non-JSON error page */ }
+
+        if (!res.ok) {
+          const fallback =
+            res.status === 408 ? "Generation took too long and was stopped." :
+            res.status >= 500 ? "The server hit an error while generating. Try again; if it keeps happening, check the server logs." :
+            "Generation failed.";
+          showResult(banner, "error", data.error || fallback, data.issues || []);
+          return;
+        }
+
+        const skipped = (data.skipped || []).map(s => `${s.subjectName}: ${s.reason}`);
+        showResult(banner, skipped.length ? "warning" : "success",
+                   data.message || "Timetable generated.", skipped);
       } finally {
         btn.disabled = false;
-        btn.textContent = "Generate";
+        btn.textContent = originalLabel;
       }
     });
 

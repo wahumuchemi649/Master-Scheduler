@@ -1,6 +1,8 @@
 # app/solver/engine.py
 from ortools.sat.python import cp_model
 
+from app.solver.validation import describe_unit
+
 
 def _group_blocks(solver_input):
     """Turn units (and option-block groups) into lists of 'blocks' — each block is
@@ -97,9 +99,10 @@ def solve(solver_input, time_limit_seconds=30):
             ]
             domain = set.intersection(*valid_sets) if valid_sets else set()
             if not domain:
+                who = "; ".join(describe_unit(solver_input, units_by_id[uid]) for uid in task["unit_ids"])
                 raise ValueError(
-                    f"No valid slot exists for {task['unit_ids']} (block {b_idx}) — "
-                    f"check teacher availability and double-period adjacency in your period structure"
+                    f"No time slot works for: {who}. Teacher unavailability, or having no "
+                    f"back-to-back periods for a double, leaves it nowhere to go."
                 )
             start = model.NewIntVarFromDomain(
                 cp_model.Domain.FromValues(sorted(domain)), f"start_{task['unit_ids'][0]}_{b_idx}"
@@ -177,12 +180,18 @@ def solve(solver_input, time_limit_seconds=30):
     for bv in block_vars:
         start_val = solver.Value(bv["start"])
         day = days[start_val // P]
-        period_id = periods[start_val % P].id
+        first_period = start_val % P
         double_group_id = None
         if bv["size"] == 2:
             double_group_counter += 1
             double_group_id = double_group_counter
-        for uid in bv["task"]["unit_ids"]:
-            placements.append({"unit_id": uid, "day": day, "period_id": period_id, "double_group_id": double_group_id})
+        # one placement per period occupied: a double lesson becomes two linked rows
+        for offset in range(bv["size"]):
+            period_id = periods[first_period + offset].id
+            for uid in bv["task"]["unit_ids"]:
+                placements.append({
+                    "unit_id": uid, "day": day, "period_id": period_id,
+                    "double_group_id": double_group_id,
+                })
 
     return placements

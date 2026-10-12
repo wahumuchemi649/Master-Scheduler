@@ -10,44 +10,43 @@ from app.repositories.timetable import (
 from app.solver.adapters.input_builder import build_solver_input
 from app.solver.adapters.output_writer import build_timetable_entries
 from app.solver.engine import solve
+from app.solver.validation import validate_before_solving, describe_tightest, GenerationError
 
 
 def generate_timetable(school_id, term_id, regenerate=False):
-    if regenerate:
-        delete_entries_for_term(term_id)
+    if not regenerate and get_entries_for_school(term_id, school_id):
+        raise GenerationError("A timetable already exists for this term.",
+                              ["Tick 'Clear and regenerate' to replace it."])
 
     solver_input, skipped = build_solver_input(school_id, term_id)
 
-    if not solver_input.units:
-        detail = ""
-        if skipped:
-            lines = [f"- {s['subjectName']} (teacher #{s['teacherId']}): {s['reason']}" for s in skipped]
-            detail = " Skipped assignments:\n" + "\n".join(lines)
-        raise ValueError(
-            "Nothing to schedule — no teacher assignment has a matching subject requirement yet."
-            + detail
-        )
+    issues = validate_before_solving(solver_input, skipped)
+    if issues:
+        raise GenerationError("Generation can't start. Fix these and try again:", issues)
 
     units_by_id = {u.unit_id: u for u in solver_input.units}
 
     try:
-        placements = solve(solver_input,  time_limit_seconds=30)
+        placements = solve(solver_input, time_limit_seconds=30)
     except ValueError as e:
-        raise ValueError(f"Could not generate: {e}")
+        raise GenerationError("Generation stopped:", [str(e)])
 
     if placements is None:
-        raise ValueError(
-            "No valid timetable could be generated — the rules you've set up can't all be "
-            "satisfied at once (check teacher availability, resource capacity, and lesson counts)."
-        )
+        raise GenerationError(
+            "No timetable satisfies every rule at once. Nothing is obviously wrong in your data, "
+            "so it's a combination of rules. The fullest teachers and classes are listed below; "
+            "loosen those first (fewer lessons, more availability, or another teacher).",
+            describe_tightest(solver_input))
 
     entries = build_timetable_entries(term_id, units_by_id, placements)
+
+    if regenerate:
+        delete_entries_for_term(term_id)  # only after a new timetable exists, so a failed run can't wipe the old one
     bulk_add_entries(entries)
 
     message = f"Generated {len(entries)} lessons"
     if skipped:
-        message += f" ({len(skipped)} assignment(s) skipped — missing subject requirements)"
-
+        message += f" ({len(skipped)} assignment(s) skipped, missing subject requirements)"
     return entries, message, skipped
 
 def get_stream_timetable(term_id, stream_id):

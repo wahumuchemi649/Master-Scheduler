@@ -138,3 +138,10 @@ table.grid-table {
 .cell-double {
   background: #FBF3E8;
 }
+
+.result-banner.warning {
+  display: block;
+  background: #FBF3E8;
+  border: 1px solid #E3D3B8;
+  color: #8A6A34;
+}

@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify
 from app.services.timetableService import (
     generate_timetable, get_stream_timetable, get_option_group_timetable,
-    get_teacher_timetable, get_school_timetable,
+    get_teacher_timetable, get_school_timetable, GenerationError,
 )
 
 timetable_bp = Blueprint("timetable", __name__, url_prefix="/api/timetable")
@@ -16,10 +16,13 @@ def generate_route():
             data.get("schoolId"), data.get("termId"), data.get("regenerate", False),
         )
         return jsonify({"message": message, "entries": entries, "skipped": skipped}), 201
+    
+    except GenerationError as e:
+        return jsonify({"error": str(e), "issues": e.issues}), 400
     except TimeoutError as e:
-        return jsonify({"error": str(e)}), 408
+        return jsonify({"error": str(e), "issues": []}), 408
     except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e), "issues": []}), 400
 
 def _serialize_entries(entries):
     return jsonify([

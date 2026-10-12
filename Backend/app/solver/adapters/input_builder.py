@@ -1,6 +1,6 @@
 from app.models.data import (
     Period, Grade, Stream, OptionBlock, OptionGroup, SubjectRequirement,
-    TeacherAssignment, TeacherConstraint, Resource, Subject,
+    TeacherAssignment, TeacherConstraint, Resource, Subject, Teacher,
 )
 from app.solver.structs import (
     PeriodSlot, TeachingUnit, OptionBlockGroup, TeacherConstraintData, SolverInput,
@@ -31,11 +31,13 @@ def build_solver_input(school_id, term_id):
     option_blocks_db = OptionBlock.query.filter(OptionBlock.gradeId.in_(grade_ids)).all() if grade_ids else []
     option_group_ids = set()
     group_grade_map = {}
+    group_subject_map = {}  # option group id -> subject id, used for readable labels
     for block in option_blocks_db:
         groups = OptionGroup.query.filter_by(optionBlockId=block.id).all()
         for g in groups:
             option_group_ids.add(g.id)
             group_grade_map[g.id] = block.gradeId
+            group_subject_map[g.id] = g.subjectId
 
     requirements = SubjectRequirement.query.filter_by(schoolId=school_id).all()
     req_by_subject_grade = {(r.subjectId, r.gradeId): r for r in requirements}
@@ -105,10 +107,26 @@ def build_solver_input(school_id, term_id):
         for c in constraints_db
     ]
 
+    # display names, so errors can say "Teacher Oyugi" instead of "teacher #12"
+    grade_name_map = {g.id: g.grade_name for g in grades}
+    labels = {
+        "teacher": {t.id: t.name for t in Teacher.query.filter_by(schoolId=school_id).all()},
+        "subject": subject_name_map,
+        "resource": {r.id: r.name for r in resources},
+        "stream": {
+            s.id: f"{grade_name_map.get(s.gradeId, '')} {s.streamName}".strip() for s in streams
+        },
+        "option_group": {
+            gid: f"{subject_name_map.get(sid, 'subject')} elective ({grade_name_map.get(group_grade_map[gid], '')})"
+            for gid, sid in group_subject_map.items()
+        },
+    }
+
     solver_input = SolverInput(
         school_id=school_id, term_id=term_id, days=SCHOOL_DAYS,
         periods=period_structs, double_adjacent_pairs=double_adjacent_pairs,
         units=units, option_blocks=option_block_groups,
         teacher_constraints=teacher_constraints, resource_capacity=resource_capacity,
+        labels=labels,
     )
     return solver_input, skipped

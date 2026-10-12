@@ -48,7 +48,8 @@ class SolverInput:
     units: List[TeachingUnit]
     option_blocks: List[OptionBlockGroup]
     teacher_constraints: List[TeacherConstraintData]
-    resource_capacity: dict                           # resource_id -> capacity
+    resource_capacity: dict 
+    labels: dict = field(default_factory=dict)  # id -> display name, for readable messages                          # resource_id -> capacity
 
 
 @dataclass
