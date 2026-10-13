@@ -5,6 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Generate Timetable — School Timetable System</title>
   <link rel="stylesheet" href="generate.css">
+
+  <style>
+    /* ---------- print / PDF support ---------- */
+    #printHeader { display: none; }
+    #outputActions { display: none; gap: 0.6rem; margin-bottom: 1rem; }
+
+    @media print {
+      @page { size: A4 landscape; margin: 10mm; }
+
+      /* hide everything, then show only the timetable area */
+      body * { visibility: hidden; }
+      #printArea, #printArea * { visibility: visible; }
+      #printArea { position: absolute; left: 0; top: 0; width: 100%; }
+
+      #printHeader { display: block; font-size: 14pt; font-weight: bold; margin-bottom: 6mm; }
+      body { background: #fff; color: #000; }
+      table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+      th, td { border: 1px solid #000; padding: 4px; }
+      thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -83,7 +106,8 @@
           <label class="checkbox-inline">
             <input type="checkbox" id="regenerateCheckbox"> Clear and regenerate if one already exists
           </label>
-          <button type="submit" class="btn-primary" id="generateBtn">Generate whole-school timetable</button>
+          <!-- disabled until the term has finished loading (fixes the "fails once after reload" race) -->
+          <button type="submit" class="btn-primary" id="generateBtn" disabled>Generate whole-school timetable</button>
         </form>
         <div class="result-banner" id="resultBanner"></div>
       </div>
@@ -121,13 +145,24 @@
           <button class="btn-primary" id="loadSchoolBtn">Load whole-school timetable</button>
         </div>
 
-        <div id="timetableOutput">
-          <p class="loading-text">Choose what to view above.</p>
+        <!-- print / download buttons, shown once a timetable is on screen -->
+        <div id="outputActions">
+          <button type="button" class="btn-primary" id="printBtn">Print</button>
+          <button type="button" class="btn-primary" id="downloadPdfBtn">Download PDF</button>
+        </div>
+
+        <div id="printArea">
+          <div id="printHeader"></div>
+          <div id="timetableOutput">
+            <p class="loading-text">Choose what to view above.</p>
+          </div>
         </div>
       </div>
     </main>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="common.js"></script>
   <script>
     let schoolId = null;
@@ -137,6 +172,7 @@
     let teachers = [];
     let streamsForSelectedGrade = [];
     let allStreams = []; // every stream in the school, for name lookups regardless of which grade is selected
+    let currentTitle = ""; // title of the timetable currently on screen, used by print and PDF
 
     const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -152,16 +188,26 @@
     // ---------- term ----------
 
     async function loadTerm() {
-      const res = await fetch(`${API_BASE}/schools/${schoolId}/current-term`, { credentials: "include" });
-      if (res.ok) {
-        const term = await res.json();
-        termId = term.id;
-        document.getElementById("termValue").textContent = `${term.term_name} · ${term.academic_year}`;
-        document.getElementById("termPanel").style.display = "none";
-      } else {
-        document.getElementById("termPanel").style.display = "block";
-        document.getElementById("termValue").textContent = "No term set";
+      const generateBtn = document.getElementById("generateBtn");
+      try {
+        const res = await fetch(`${API_BASE}/schools/${schoolId}/current-term`, { credentials: "include" });
+        if (res.ok) {
+          const term = await res.json();
+          termId = term.id;
+          document.getElementById("termValue").textContent = `${term.term_name} · ${term.academic_year}`;
+          document.getElementById("termPanel").style.display = "none";
+        } else {
+          termId = null;
+          document.getElementById("termPanel").style.display = "block";
+          document.getElementById("termValue").textContent = "No term set";
+        }
+      } catch (err) {
+        termId = null;
+        document.getElementById("termValue").textContent = "Could not load term";
+        showErr("Couldn't reach the server to load the term. Reload the page in a moment.");
       }
+      // the generate button only works once we actually know the term
+      generateBtn.disabled = !termId;
     }
 
     document.getElementById("termForm").addEventListener("submit", async (e) => {
@@ -304,10 +350,26 @@
         showResult(banner, skipped.length ? "warning" : "success",
                    data.message || "Timetable generated.", skipped);
       } finally {
-        btn.disabled = false;
+        btn.disabled = !termId;
         btn.textContent = originalLabel;
       }
     });
+
+    // ---------- showing a timetable (shared by all three views) ----------
+
+    function showTimetable(html, title, emptyMsg) {
+      const out = document.getElementById("timetableOutput");
+      const actions = document.getElementById("outputActions");
+      if (!html) {
+        out.innerHTML = `<p class="loading-text">${emptyMsg}</p>`;
+        actions.style.display = "none";
+        currentTitle = "";
+        return;
+      }
+      out.innerHTML = html;
+      currentTitle = `${title} — ${document.getElementById("termValue").textContent}`;
+      actions.style.display = "flex";
+    }
 
     // ---------- view tabs ----------
 
@@ -318,7 +380,7 @@
         document.getElementById("viewStream").style.display = tab.dataset.tab === "stream" ? "flex" : "none";
         document.getElementById("viewTeacher").style.display = tab.dataset.tab === "teacher" ? "flex" : "none";
         document.getElementById("viewSchool").style.display = tab.dataset.tab === "school" ? "block" : "none";
-        document.getElementById("timetableOutput").innerHTML = `<p class="loading-text">Choose what to view above.</p>`;
+        showTimetable(null, "", "Choose what to view above.");
       });
     });
 
@@ -356,9 +418,14 @@
 
       const res = await fetch(`${API_BASE}/timetable/term/${termId}/stream/${streamId}`, { credentials: "include" });
       const entries = await res.json();
-      document.getElementById("timetableOutput").innerHTML = entries.length
-        ? renderGrid(entries, e => teacherName(e.teacherId))
-        : `<p class="loading-text">No timetable generated yet for this class.</p>`;
+
+      const gradeText = document.getElementById("viewGradeSelect").selectedOptions[0].textContent;
+      const streamText = document.getElementById("viewStreamSelect").selectedOptions[0].textContent;
+      showTimetable(
+        entries.length ? renderGrid(entries, e => teacherName(e.teacherId)) : null,
+        `${gradeText} ${streamText}`,
+        "No timetable generated yet for this class."
+      );
     });
 
     document.getElementById("loadTeacherBtn").addEventListener("click", async () => {
@@ -369,9 +436,13 @@
 
       const res = await fetch(`${API_BASE}/timetable/term/${termId}/teacher/${teacherId}`, { credentials: "include" });
       const entries = await res.json();
-      document.getElementById("timetableOutput").innerHTML = entries.length
-        ? renderGrid(entries, e => e.streamId ? streamName(e.streamId) : "Elective group")
-        : `<p class="loading-text">No timetable generated yet for this teacher.</p>`;
+
+      const tName = document.getElementById("viewTeacherSelect").selectedOptions[0].textContent;
+      showTimetable(
+        entries.length ? renderGrid(entries, e => e.streamId ? streamName(e.streamId) : "Elective group") : null,
+        tName,
+        "No timetable generated yet for this teacher."
+      );
     });
 
     document.getElementById("loadSchoolBtn").addEventListener("click", async () => {
@@ -382,7 +453,7 @@
       const entries = await res.json();
 
       if (entries.length === 0) {
-        document.getElementById("timetableOutput").innerHTML = `<p class="loading-text">No timetable generated yet.</p>`;
+        showTimetable(null, "", "No timetable generated yet.");
         return;
       }
 
@@ -403,8 +474,51 @@
         </tr>`;
       }
       html += `</tbody></table>`;
-      document.getElementById("timetableOutput").innerHTML = html;
+      showTimetable(html, "Whole school", "");
     });
+
+    // ---------- print and download PDF ----------
+
+    // turns a table cell into plain text, keeping line breaks between subject / teacher / time
+    function cellText(td) {
+      const clone = td.cloneNode(true);
+      clone.querySelectorAll("br").forEach(br => br.replaceWith("\n"));
+      clone.querySelectorAll(".cell-subject").forEach(s => s.after("\n"));
+      return clone.textContent.replace(/\n+/g, "\n").trim();
+    }
+
+    document.getElementById("printBtn").addEventListener("click", () => {
+      document.getElementById("printHeader").textContent =
+        `${document.getElementById("schoolNameTag").textContent} — ${currentTitle}`;
+      window.print();
+    });
+
+    document.getElementById("downloadPdfBtn").addEventListener("click", () => {
+      const table = document.querySelector("#timetableOutput table");
+      if (!table) return;
+
+      const head = [...table.querySelectorAll("thead th")].map(th => th.textContent.trim());
+      const body = [...table.querySelectorAll("tbody tr")].map(tr => [...tr.children].map(cellText));
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      doc.setFontSize(14);
+      doc.text(`${document.getElementById("schoolNameTag").textContent} — ${currentTitle}`, 14, 12);
+      doc.autoTable({
+        head: [head],
+        body,
+        startY: 18,
+        theme: "grid",
+        styles: { fontSize: 8, cellPadding: 2, valign: "middle", halign: "center" },
+        headStyles: { fillColor: [40, 40, 40] },
+        columnStyles: { 0: { halign: "left", fontStyle: "bold" } },
+      });
+
+      const filename = currentTitle.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_") + ".pdf";
+      doc.save(filename);
+    });
+
+    // ---------- init ----------
 
     (async function init() {
       schoolId = await requireAuth();

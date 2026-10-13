@@ -6,6 +6,7 @@ const API_BASE = isLocal
 
 // renders the decorative grid on the left panel — a few cells lit up
 // like lessons placed on a weekly timetable
+
 function renderTimetableGrid(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
